@@ -5,10 +5,10 @@
 #include "ShooterGame.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSessionInterface.h"
+#include "OnlineSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/NetworkDelegates.h"
-#include "OnlineSubsystem.h"
-#include "OnlineIdentityInterface.h"
+#include "UI/ShooterUIManager.h"
 #include "ShooterGameInstance.generated.h"
 
 class FVariantData;
@@ -345,6 +345,8 @@ private:
 	void HideAdventureScreen();
 	void AddNetworkFailureHandlers();
 	void RemoveNetworkFailureHandlers();
+
+	AShooterUIManager* GetUIManager();
 
 	/** Called when there is an error trying to travel to a local session */
 	void TravelLocalSessionFailure(UWorld *World, ETravelFailure::Type FailureType, const FString& ErrorString);

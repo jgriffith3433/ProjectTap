@@ -19,8 +19,6 @@
 #include "Online/ShooterOnlineSessionClient.h"
 #include "OnlineFriendsInterface.h"
 #include "Online.h"
-#include "UI/ShooterAdventureMenuManager.h"
-#include "UI/GameSparksManager.h"
 #include <cassert>
 
 FAutoConsoleVariable CVarShooterGameTestEncryption(TEXT("ShooterGame.TestEncryption"), 0, TEXT("If true, clients will send an encryption token with their request to join the server and attempt to encrypt the connection using a debug key. This is NOT SECURE and for demonstration purposes only."));
@@ -195,6 +193,12 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 	{
 		TSharedPtr<const FUniqueNetId> playerId = identity->GetUniquePlayerId(LocalUserNum);
 		TSharedPtr<FUserOnlineAccount> user = identity->GetUserAccount(*playerId);
+		AShooterUIManager* ShooterUIManager = GetUIManager();
+		if (ShooterUIManager)
+		{
+			ShooterUIManager->DisplayName = user->GetDisplayName();
+			ShooterUIManager->ShowUserProfile();
+		}
 
 		ULocalPlayer * NewPlayerOwner = GetFirstGamePlayer();
 		if (NewPlayerOwner != nullptr)
@@ -668,53 +672,50 @@ void UShooterGameInstance::HideLoadingScreen()
 
 void UShooterGameInstance::ShowLoginScreen()
 {
-	for (TActorIterator<AActor> It(GetWorld(), AGameSparksManager::StaticClass()); It; ++It)
+	AShooterUIManager* ShooterUIManager = GetUIManager();
+	if (ShooterUIManager)
 	{
-		AGameSparksManager* GameSparksManager = Cast<AGameSparksManager>(*It);
-		if (GameSparksManager && !GameSparksManager->IsPendingKill())
-		{
-			GameSparksManager->ShowLoginScreen();
-			break;
-		}
+		ShooterUIManager->ShowLoginScreen();
 	}
 }
 
 void UShooterGameInstance::HideLoginScreen()
 {
-	for (TActorIterator<AActor> It(GetWorld(), AGameSparksManager::StaticClass()); It; ++It)
+	AShooterUIManager* ShooterUIManager = GetUIManager();
+	if (ShooterUIManager)
 	{
-		AGameSparksManager* GameSparksManager = Cast<AGameSparksManager>(*It);
-		if (GameSparksManager && !GameSparksManager->IsPendingKill())
+		ShooterUIManager->HideLoginScreen();
+	}
+}
+
+AShooterUIManager* UShooterGameInstance::GetUIManager()
+{
+	for (TActorIterator<AActor> It(GetWorld(), AShooterUIManager::StaticClass()); It; ++It)
+	{
+		AShooterUIManager* ShooterUIManager = Cast<AShooterUIManager>(*It);
+		if (ShooterUIManager && !ShooterUIManager->IsPendingKill())
 		{
-			GameSparksManager->HideLoginScreen();
-			break;
+			return ShooterUIManager;
 		}
 	}
+	return NULL;
 }
 
 void UShooterGameInstance::ShowAdventureScreen()
 {
-	for (TActorIterator<AActor> It(GetWorld(), AShooterAdventureMenuManager::StaticClass()); It; ++It)
+	AShooterUIManager* ShooterUIManager = GetUIManager();
+	if (ShooterUIManager)
 	{
-		AShooterAdventureMenuManager* ShooterAdventureMenuManager = Cast<AShooterAdventureMenuManager>(*It);
-		if (ShooterAdventureMenuManager && !ShooterAdventureMenuManager->IsPendingKill())
-		{
-			ShooterAdventureMenuManager->ShowAdventureScreen();
-			break;
-		}
+		ShooterUIManager->ShowAdventureScreen();
 	}
 }
 
 void UShooterGameInstance::HideAdventureScreen()
 {
-	for (TActorIterator<AActor> It(GetWorld(), AShooterAdventureMenuManager::StaticClass()); It; ++It)
+	AShooterUIManager* ShooterUIManager = GetUIManager();
+	if (ShooterUIManager)
 	{
-		AShooterAdventureMenuManager* ShooterAdventureMenuManager = Cast<AShooterAdventureMenuManager>(*It);
-		if (ShooterAdventureMenuManager && !ShooterAdventureMenuManager->IsPendingKill())
-		{
-			ShooterAdventureMenuManager->HideAdventureScreen();
-			break;
-		}
+		ShooterUIManager->HideAdventureScreen();
 	}
 }
 
@@ -1017,6 +1018,19 @@ void UShooterGameInstance::BeginMainMenuState()
 		MainMenuUI->OnPlayTogetherEventReceived();
 	}
 
+	auto Identity = Online::GetIdentityInterface();
+	if (Identity.IsValid() && Identity->GetLoginStatus(0) == ELoginStatus::LoggedIn)
+	{
+		TSharedPtr<const FUniqueNetId> playerId = Identity->GetUniquePlayerId(0);
+		TSharedPtr<FUserOnlineAccount> user = Identity->GetUserAccount(*playerId);
+		AShooterUIManager* ShooterUIManager = GetUIManager();
+		if (ShooterUIManager)
+		{
+			ShooterUIManager->DisplayName = user->GetDisplayName();
+			ShooterUIManager->ShowUserProfile();
+		}
+	}
+
 #if !SHOOTER_CONSOLE_UI
 	// The cached unique net ID is usually set on the login screen, but there isn't
 	// one on PC/Mac, so do it here.
@@ -1077,6 +1091,11 @@ void UShooterGameInstance::BeginPlayingState()
 
 	// Make sure viewport has focus
 	FSlateApplication::Get().SetAllUserFocusToGameViewport();
+	AShooterUIManager* ShooterUIManager = GetUIManager();
+	if (ShooterUIManager)
+	{
+		ShooterUIManager->HideUserProfile();
+	}
 }
 
 void UShooterGameInstance::EndPlayingState()
