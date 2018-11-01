@@ -1,0 +1,60 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#include "ShooterGame.h"
+#include "Bots/BTTask_FindPointNearEnemy.h"
+#include "Bots/ShooterAIController.h"
+#include "Enemies/ShooterEnemyAIController.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
+#include "NavigationSystem.h"
+
+
+UBTTask_FindPointNearEnemy::UBTTask_FindPointNearEnemy(const FObjectInitializer& ObjectInitializer) 
+	: Super(ObjectInitializer)
+{
+}
+
+EBTNodeResult::Type UBTTask_FindPointNearEnemy::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AShooterAIController* MyBotController = Cast<AShooterAIController>(OwnerComp.GetAIOwner());
+
+	if (MyBotController != NULL)
+	{
+		APawn* MyBot = MyBotController->GetPawn();
+		AShooterCharacter* Enemy = MyBotController->GetEnemy();
+		if (Enemy && MyBot)
+		{
+			const float SearchRadius = 200.0f;
+			const FVector SearchOrigin = Enemy->GetActorLocation() + 600.0f * (MyBot->GetActorLocation() - Enemy->GetActorLocation()).GetSafeNormal();
+			FVector Loc(0);
+			UNavigationSystemV1::K2_GetRandomReachablePointInRadius(MyBotController, SearchOrigin, Loc, SearchRadius);
+			if (Loc != FVector::ZeroVector)
+			{
+				OwnerComp.GetBlackboardComponent()->SetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID(), Loc);
+				return EBTNodeResult::Succeeded;
+			}
+		}
+	}
+	AShooterEnemyAIController* MyEnemyController = Cast<AShooterEnemyAIController>(OwnerComp.GetAIOwner());
+
+	if (MyEnemyController)
+	{
+		APawn* MyEnemy = MyEnemyController->GetPawn();
+		AShooterCharacter* PlayerEnemy = MyEnemyController->GetEnemy();
+		if (PlayerEnemy && MyEnemy)
+		{
+			const float SearchRadius = 200.0f;
+			const FVector SearchOrigin = PlayerEnemy->GetActorLocation() + 600.0f * (MyEnemy->GetActorLocation() - PlayerEnemy->GetActorLocation()).GetSafeNormal();
+			FVector Loc(0);
+			UNavigationSystemV1::K2_GetRandomReachablePointInRadius(MyEnemyController, SearchOrigin, Loc, SearchRadius);
+			if (Loc != FVector::ZeroVector)
+			{
+				OwnerComp.GetBlackboardComponent()->SetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID(), Loc);
+				return EBTNodeResult::Succeeded;
+			}
+		}
+	}
+
+	return EBTNodeResult::Failed;
+}
