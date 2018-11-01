@@ -281,6 +281,8 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 
 void UShooterGameInstance::OnUserCanPlay(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
 {
+	CleanupOnlinePrivilegeTask();
+
 	if (PrivilegeResults == (uint32)IOnlineIdentity::EPrivilegeResults::NoFailures)
 	{
 		SetControllerAndAdvanceToMainMenu(0);
