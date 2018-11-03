@@ -8,7 +8,6 @@
 #include "ShooterGameLoadingScreen.h"
 #include "ShooterGameInstance.h"
 #include "NetworkReplayStreaming.h"
-#include "ShooterGameViewportClient.h"
 
 #define LOCTEXT_NAMESPACE "ShooterGame.HUD.Menu"
 
@@ -233,29 +232,6 @@ void SShooterDemoList::DeleteDemo()
 		// We're still building the list
 		return;
 	}
-
-	if (SelectedItem.IsValid())
-	{
-		UShooterGameInstance* const GI = Cast<UShooterGameInstance>(PlayerOwner->GetGameInstance());
-
-		if ( GI != NULL )
-		{
-			UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>( GI->GetGameViewportClient() );
-
-			if ( ShooterViewport )
-			{
-				ShooterViewport->ShowDialog( 
-					PlayerOwner,
-					EShooterDialogType::Generic,
-					FText::Format(LOCTEXT("DeleteDemoFmt", "Delete {0}?"), FText::FromString(SelectedItem->StreamInfo.FriendlyName)),
-					LOCTEXT("EnterYes", "ENTER - YES"),
-					LOCTEXT("EscapeNo", "ESC - NO"),
-					FOnClicked::CreateRaw(this, &SShooterDemoList::OnDemoDeleteConfirm),
-					FOnClicked::CreateRaw(this, &SShooterDemoList::OnDemoDeleteCancel)
-				);
-			}
-		}
-	}
 }
 
 FReply SShooterDemoList::OnDemoDeleteConfirm()
@@ -268,35 +244,11 @@ FReply SShooterDemoList::OnDemoDeleteConfirm()
 		ReplayStreamer->DeleteFinishedStream(SelectedItem->StreamInfo.Name, FDeleteFinishedStreamCallback::CreateSP(this, &SShooterDemoList::OnDeleteFinishedStreamComplete));
 	}
 
-	UShooterGameInstance* const GI = Cast<UShooterGameInstance>(PlayerOwner->GetGameInstance());
-
-	if ( GI != NULL )
-	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>( GI->GetGameViewportClient() );
-
-		if ( ShooterViewport )
-		{
-			ShooterViewport->HideDialog();
-		}
-	}
-
 	return FReply::Handled();
 }
 
 FReply SShooterDemoList::OnDemoDeleteCancel()
 {
-	UShooterGameInstance* const GI = Cast<UShooterGameInstance>(PlayerOwner->GetGameInstance());
-
-	if ( GI != NULL )
-	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>( GI->GetGameViewportClient() );
-
-		if ( ShooterViewport )
-		{
-			ShooterViewport->HideDialog();
-		}
-	}
-
 	return FReply::Handled();
 }
 

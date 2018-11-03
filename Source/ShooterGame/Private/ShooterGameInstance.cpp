@@ -12,7 +12,6 @@
 #include "OnlineKeyValuePair.h"
 #include "ShooterStyle.h"
 #include "ShooterMenuItemWidgetStyle.h"
-#include "ShooterGameViewportClient.h"
 #include "Player/ShooterPlayerController_Menu.h"
 #include "Online/ShooterPlayerState.h"
 #include "Online/ShooterGameSession.h"
@@ -106,8 +105,7 @@ void UShooterGameInstance::Init()
 	OnLogoutCompleteDelegate = FOnLogoutCompleteDelegate::CreateUObject(this, &UShooterGameInstance::OnLogoutComplete);
 
 	OnConnectionStatusChangedDelegateHandle = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(OnConnectionStatusChangedDelegate);
-	OnLoginCompleteDelegateHandle = identity->AddOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegate);
-
+	
 	IgnorePairingChangeForControllerId = -1;
 
 	LocalPlayerOnlineStatus.InsertDefaulted(0, MAX_LOCAL_PLAYERS);
@@ -179,6 +177,46 @@ void UShooterGameInstance::OnConnectionStatusChanged(const FString& ServiceName,
 #endif
 }
 
+FReply UShooterGameInstance::OnConfirmGeneric()
+{
+	return FReply::Handled();
+}
+
+FReply UShooterGameInstance::OnContinueWithoutSavingConfirm()
+{
+	SetControllerAndAdvanceToMainMenu(0);
+	return FReply::Handled();
+}
+
+void UShooterGameInstance::SetControllerAndAdvanceToMainMenu(const int ControllerIndex)
+{
+	ULocalPlayer * NewPlayerOwner = GetFirstGamePlayer();
+
+	if (NewPlayerOwner != nullptr && ControllerIndex != -1)
+	{
+		NewPlayerOwner->SetControllerId(ControllerIndex);
+		NewPlayerOwner->SetCachedUniqueNetId(NewPlayerOwner->GetUniqueNetIdFromCachedControllerId().GetUniqueNetId());
+
+		GotoState(ShooterGameInstanceState::MainMenu);
+	}
+}
+
+void UShooterGameInstance::Login(int32 LocalUserNum, const FString& UserName, const FString& Password)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(identity);
+
+	OnLoginCompleteDelegateHandle = identity->AddOnLoginCompleteDelegate_Handle(LocalUserNum, OnLoginCompleteDelegate);
+
+	FOnlineAccountCredentials AccountCredentials;
+	AccountCredentials.Id = UserName;
+	AccountCredentials.Token = Password;
+	AccountCredentials.Type = "GSCredentials";
+	identity->Login(0, AccountCredentials);
+}
+
 void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
 {
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
@@ -193,35 +231,19 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 	{
 		TSharedPtr<const FUniqueNetId> playerId = identity->GetUniquePlayerId(LocalUserNum);
 		TSharedPtr<FUserOnlineAccount> user = identity->GetUserAccount(*playerId);
-		AShooterUIManager* ShooterUIManager = GetUIManager();
-		if (ShooterUIManager)
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
 		{
-			ShooterUIManager->DisplayName = user->GetDisplayName();
-			ShooterUIManager->ShowUserProfile();
+			MenuPC->DisplayName = user->GetDisplayName();
+			MenuPC->ShowMainMenu();
 		}
 
 		ULocalPlayer * NewPlayerOwner = GetFirstGamePlayer();
 		if (NewPlayerOwner != nullptr)
 		{
-			UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
 			// If they don't currently have a license, let them know, but don't let them proceed
-			if (!bIsLicensed && ShooterViewport != NULL)
+			if (!bIsLicensed)
 			{
-				const FText StopReason = NSLOCTEXT("ProfileMessages", "NeedLicense", "The signed in users do not have a license for this game. Please purchase ShooterGame from the Xbox Marketplace or sign in a user with a valid license.");
-				const FText OKButton = NSLOCTEXT("DialogButtons", "OKAY", "OK");
-/*
-// 
-// 				ShooterViewport->ShowDialog(
-// 					nullptr,
-// 					EShooterDialogType::Generic,
-// 					StopReason,
-// 					OKButton,
-// 					FText::GetEmpty(),
-// 					FOnClicked::CreateRaw(this, &UShooterGameInstance::OnConfirmGeneric),
-// 					FOnClicked::CreateRaw(this, &UShooterGameInstance::OnConfirmGeneric)
-// 				);
-*/
 				return;
 			}
 
@@ -234,21 +256,7 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 			else
 			{
 				// Todo: Change this to not let you continue without signing in
-				// Show a warning that your progress won't be saved if you continue without logging in. 
-				if (ShooterViewport != NULL)
-				{
-/*
-// 					ShooterViewport->ShowDialog(
-// 						nullptr,
-// 						EShooterDialogType::Generic,
-// 						NSLOCTEXT("ProfileMessages", "ProgressWillNotBeSaved", "If you continue without signing in, your progress will not be saved."),
-// 						NSLOCTEXT("DialogButtons", "AContinue", "A - Continue"),
-// 						NSLOCTEXT("DialogButtons", "BBack", "B - Back"),
-// 						FOnClicked::CreateRaw(this, &UShooterGameInstance::OnContinueWithoutSavingConfirm),
-// 						FOnClicked::CreateRaw(this, &UShooterGameInstance::OnConfirmGeneric)
-// 					);
-*/
-				}
+				return;
 			}
 		}
 		auto friendInterface = OnlineSub->GetFriendsInterface();
@@ -293,63 +301,43 @@ void UShooterGameInstance::OnUserCanPlay(const FUniqueNetId& UserId, EUserPrivil
 	}
 	else
 	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
+		// Cannot play due to age restrictions
+	}
+}
 
-		if (ShooterViewport != NULL)
+void UShooterGameInstance::CreateNewRTSession(TSharedPtr<RTSessionInfo> SessionInfo)
+{
+	RTListener = MakeShareable(new RTSessionListener(this));
+	RTSession = MakeShareable(GameSparksRT::SessionBuilder()
+		.SetConnectToken(TCHAR_TO_UTF8(*SessionInfo->AccessToken))
+		.SetHost(TCHAR_TO_UTF8(*SessionInfo->HostURL))
+		.SetPort(TCHAR_TO_UTF8(*SessionInfo->PortID))
+		.SetListener(RTListener.Get())
+		.Build());
+
+	RTSession->Start();
+}
+
+void UShooterGameInstance::OnJoinRTSession(const FString& MapPath)
+{
+	if ((PendingState == CurrentState) || (PendingState == ShooterGameInstanceState::None))
+	{
+		// Go ahead and go into loading state now
+		// If we fail, the delegate will handle showing the proper messaging and move to the correct state
+		ShowLoadingScreen();
+		GotoState(ShooterGameInstanceState::Playing);
+		APlayerController * const PlayerController = GetFirstLocalPlayerController();
+
+		if (PlayerController == nullptr)
 		{
-			const FText ReturnReason = NSLOCTEXT("PrivilegeFailures", "CannotPlayAgeRestriction", "You cannot play this game due to age restrictions.");
-			const FText OKButton = NSLOCTEXT("DialogButtons", "OKAY", "OK");
-
-/*
-// 			ShooterViewport->ShowDialog(
-// 				nullptr,
-// 				EShooterDialogType::Generic,
-// 				ReturnReason,
-// 				OKButton,
-// 				FText::GetEmpty(),
-// 				FOnClicked::CreateRaw(this, &UShooterGameInstance::OnConfirmGeneric),
-// 				FOnClicked::CreateRaw(this, &UShooterGameInstance::OnConfirmGeneric)
-// 			);
-*/
+			FText ReturnReason = NSLOCTEXT("NetworkErrors", "InvalidPlayerController", "Invalid Player Controller");
+			FText OKButton = NSLOCTEXT("DialogButtons", "OKAY", "OK");
+			RemoveNetworkFailureHandlers();
+			ShowMessageThenGoMain(ReturnReason, OKButton, FText::GetEmpty());
+			return;
 		}
-	}
-}
 
-FReply UShooterGameInstance::OnConfirmGeneric()
-{
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-	if (ShooterViewport != NULL)
-	{
-		ShooterViewport->HideDialog();
-	}
-
-	return FReply::Handled();
-}
-
-FReply UShooterGameInstance::OnContinueWithoutSavingConfirm()
-{
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-	if (ShooterViewport != NULL)
-	{
-		ShooterViewport->HideDialog();
-	}
-
-	SetControllerAndAdvanceToMainMenu(0);
-	return FReply::Handled();
-}
-
-void UShooterGameInstance::SetControllerAndAdvanceToMainMenu(const int ControllerIndex)
-{
-	ULocalPlayer * NewPlayerOwner = GetFirstGamePlayer();
-
-	if (NewPlayerOwner != nullptr && ControllerIndex != -1)
-	{
-		NewPlayerOwner->SetControllerId(ControllerIndex);
-		NewPlayerOwner->SetCachedUniqueNetId(NewPlayerOwner->GetUniqueNetIdFromCachedControllerId().GetUniqueNetId());
-
-		GotoState(ShooterGameInstanceState::MainMenu);
+		PlayerController->ClientTravelInternal(MapPath, TRAVEL_Absolute);
 	}
 }
 
@@ -378,6 +366,11 @@ void UShooterGameInstance::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccess
 	if (bWasSuccessful)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Logged out user %d"), LocalUserNum));
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
+		{
+			MenuPC->ShowLoginScreen();
+		}
 	}
 	else
 	{
@@ -396,6 +389,10 @@ void UShooterGameInstance::Shutdown()
 
 	// Unregister ticker delegate
 	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+
+	RTSession.Reset();
+	UGameSparksModule::GetModulePtr()->GetGSInstance().Disconnect();
+	Logout(0);
 }
 
 void UShooterGameInstance::HandleSessionFailure( const FUniqueNetId& NetId, ESessionFailure::Type FailureType )
@@ -646,76 +643,50 @@ void UShooterGameInstance::ShowLoadingScreen()
 	//  We can't use IShooterGameLoadingScreenModule for seamless travel though
 	//  In this case, we just add a widget to the viewport, and have it update on the main thread
 	//  To simplify things, we just do both, and you can't tell, one will cover the other if they both show at the same time
-	IShooterGameLoadingScreenModule* const LoadingScreenModule = FModuleManager::LoadModulePtr<IShooterGameLoadingScreenModule>("ShooterGameLoadingScreen");
+	/*IShooterGameLoadingScreenModule* const LoadingScreenModule = FModuleManager::LoadModulePtr<IShooterGameLoadingScreenModule>("ShooterGameLoadingScreen");
 	if (LoadingScreenModule != nullptr)
 	{
 		LoadingScreenModule->StartInGameLoadingScreen();
-	}
-
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-	if ( ShooterViewport != NULL )
-	{
-		ShooterViewport->ShowLoadingScreen();
-	}
+	}*/
 }
 
 void UShooterGameInstance::HideLoadingScreen()
 {
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-	if (ShooterViewport != NULL)
-	{
-		ShooterViewport->HideLoadingScreen();
-	}
 }
 
 void UShooterGameInstance::ShowLoginScreen()
 {
-	AShooterUIManager* ShooterUIManager = GetUIManager();
-	if (ShooterUIManager)
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
 	{
-		ShooterUIManager->ShowLoginScreen();
+		MenuPC->ShowLoginScreen();
 	}
 }
 
 void UShooterGameInstance::HideLoginScreen()
 {
-	AShooterUIManager* ShooterUIManager = GetUIManager();
-	if (ShooterUIManager)
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
 	{
-		ShooterUIManager->HideLoginScreen();
+		MenuPC->HideLoginScreen();
 	}
-}
-
-AShooterUIManager* UShooterGameInstance::GetUIManager()
-{
-	for (TActorIterator<AActor> It(GetWorld(), AShooterUIManager::StaticClass()); It; ++It)
-	{
-		AShooterUIManager* ShooterUIManager = Cast<AShooterUIManager>(*It);
-		if (ShooterUIManager && !ShooterUIManager->IsPendingKill())
-		{
-			return ShooterUIManager;
-		}
-	}
-	return NULL;
 }
 
 void UShooterGameInstance::ShowAdventureScreen()
 {
-	AShooterUIManager* ShooterUIManager = GetUIManager();
-	if (ShooterUIManager)
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
 	{
-		ShooterUIManager->ShowAdventureScreen();
+		MenuPC->ShowAdventureScreen();
 	}
 }
 
 void UShooterGameInstance::HideAdventureScreen()
 {
-	AShooterUIManager* ShooterUIManager = GetUIManager();
-	if (ShooterUIManager)
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
 	{
-		ShooterUIManager->HideAdventureScreen();
+		MenuPC->HideAdventureScreen();
 	}
 }
 
@@ -728,10 +699,19 @@ bool UShooterGameInstance::LoadFrontEndMap(const FString& MapName)
 	if (World)
 	{
 		FString const CurrentMapName = *World->PersistentLevel->GetOutermost()->GetName();
+#if WITH_EDITOR
+		// This solves the problem where we load the same map in the editor
+		// For some reason GetName above DOES return the full path?
+		if (CurrentMapName.Find("Entry") != -1 && MapName.Find("Entry") != -1)
+		{
+			return bSuccess;
+		}
+#else
 		if (CurrentMapName == MapName)
 		{
 			return bSuccess;
 		}
+#endif
 	}
 
 	FString Error;
@@ -937,7 +917,6 @@ void UShooterGameInstance::BeginAdventureState()
 	LoadFrontEndMap(AdventureScreenMap);
 
 	ULocalPlayer* const LocalPlayer = GetFirstGamePlayer();
-	LocalPlayer->SetCachedUniqueNetId(nullptr);
 	if (LocalPlayer->PlayerController)
 	{
 		LocalPlayer->PlayerController->bShowMouseCursor = true;
@@ -1006,7 +985,7 @@ void UShooterGameInstance::BeginMainMenuState()
 	// player 0 gets to own the UI
 	ULocalPlayer* const Player = GetFirstGamePlayer();
 
-	MainMenuUI = MakeShareable(new FShooterMainMenu());
+	/*MainMenuUI = MakeShareable(new FShooterMainMenu());
 	MainMenuUI->Construct(this, Player);
 	MainMenuUI->AddMenuToGameViewport();
 
@@ -1016,18 +995,18 @@ void UShooterGameInstance::BeginMainMenuState()
 	if (PlayTogetherInfo.UserIndex != -1)
 	{
 		MainMenuUI->OnPlayTogetherEventReceived();
-	}
+	}*/
 
 	auto Identity = Online::GetIdentityInterface();
 	if (Identity.IsValid() && Identity->GetLoginStatus(0) == ELoginStatus::LoggedIn)
 	{
 		TSharedPtr<const FUniqueNetId> playerId = Identity->GetUniquePlayerId(0);
 		TSharedPtr<FUserOnlineAccount> user = Identity->GetUserAccount(*playerId);
-		AShooterUIManager* ShooterUIManager = GetUIManager();
-		if (ShooterUIManager)
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
 		{
-			ShooterUIManager->DisplayName = user->GetDisplayName();
-			ShooterUIManager->ShowUserProfile();
+			MenuPC->DisplayName = user->GetDisplayName();
+			MenuPC->ShowMainMenu();
 		}
 	}
 
@@ -1047,11 +1026,11 @@ void UShooterGameInstance::BeginMainMenuState()
 
 void UShooterGameInstance::EndMainMenuState()
 {
-	if (MainMenuUI.IsValid())
+	/*if (MainMenuUI.IsValid())
 	{
 		MainMenuUI->RemoveMenuFromGameViewport();
 		MainMenuUI = nullptr;
-	}
+	}*/
 }
 
 void UShooterGameInstance::BeginMessageMenuState()
@@ -1066,20 +1045,20 @@ void UShooterGameInstance::BeginMessageMenuState()
 	// Make sure we're not showing the loading screen
 	HideLoadingScreen();
 
-	check(!MessageMenuUI.IsValid());
+	/*check(!MessageMenuUI.IsValid());
 	MessageMenuUI = MakeShareable(new FShooterMessageMenu);
 	MessageMenuUI->Construct(this, PendingMessage.PlayerOwner, PendingMessage.DisplayString, PendingMessage.OKButtonString, PendingMessage.CancelButtonString, PendingMessage.NextState);
-
+	*/
 	PendingMessage.DisplayString = FText::GetEmpty();
 }
 
 void UShooterGameInstance::EndMessageMenuState()
 {
-	if (MessageMenuUI.IsValid())
+	/*if (MessageMenuUI.IsValid())
 	{
 		MessageMenuUI->RemoveFromGameViewport();
 		MessageMenuUI = nullptr;
-	}
+	}*/
 }
 
 void UShooterGameInstance::BeginPlayingState()
@@ -1091,10 +1070,10 @@ void UShooterGameInstance::BeginPlayingState()
 
 	// Make sure viewport has focus
 	FSlateApplication::Get().SetAllUserFocusToGameViewport();
-	AShooterUIManager* ShooterUIManager = GetUIManager();
-	if (ShooterUIManager)
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
 	{
-		ShooterUIManager->HideUserProfile();
+		MenuPC->HideMainMenu();
 	}
 }
 
@@ -1573,6 +1552,11 @@ void UShooterGameInstance::OnSearchSessionsComplete(bool bWasSuccessful)
 
 bool UShooterGameInstance::Tick(float DeltaSeconds)
 {
+	if (RTSession.IsValid())
+	{
+		RTSession->Update();
+	}
+
 	// Dedicated server doesn't need to worry about game state
 	if (IsRunningDedicatedServer() == true)
 	{
@@ -1581,12 +1565,10 @@ bool UShooterGameInstance::Tick(float DeltaSeconds)
 
 	MaybeChangeState();
 
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
 	if (CurrentState != ShooterGameInstanceState::LoginScreen)
 	{
 		// If at any point we aren't licensed (but we are after login) bounce them back to the login screen
-		if (!bIsLicensed && CurrentState != ShooterGameInstanceState::None && !ShooterViewport->IsShowingDialog())
+		if (!bIsLicensed && CurrentState != ShooterGameInstanceState::None)
 		{
 			const FText ReturnReason	= NSLOCTEXT( "ProfileMessages", "NeedLicense", "The signed in users do not have a license for this game. Please purchase ShooterGame from the Xbox Marketplace or sign in a user with a valid license." );
 			const FText OKButton		= NSLOCTEXT( "DialogButtons", "OKAY", "OK" );
@@ -1595,28 +1577,6 @@ bool UShooterGameInstance::Tick(float DeltaSeconds)
 		}
 
 		// Show controller disconnected dialog if any local players have an invalid controller
-		if(ShooterViewport != NULL && !ShooterViewport->IsShowingDialog())
-		{
-			for (int i = 0; i < LocalPlayers.Num(); ++i)
-			{
-				if (LocalPlayers[i] && LocalPlayers[i]->GetControllerId() == -1)
-				{
-					ShooterViewport->ShowDialog( 
-						LocalPlayers[i],
-						EShooterDialogType::ControllerDisconnected,
-						FText::Format(NSLOCTEXT("ProfileMessages", "PlayerReconnectControllerFmt", "Player {0}, please reconnect your controller."), FText::AsNumber(i + 1)),
-#if PLATFORM_PS4
-						NSLOCTEXT("DialogButtons", "PS4_CrossButtonContinue", "Cross Button - Continue"),
-#else
-						NSLOCTEXT("DialogButtons", "AButtonContinue", "A - Continue"),
-#endif
-						FText::GetEmpty(),
-						FOnClicked::CreateUObject(this, &UShooterGameInstance::OnControllerReconnectConfirm),
-						FOnClicked()
-					);
-				}
-			}
-		}
 	}
 
 	// If we have a pending invite, and we are at the login screen, and the session is properly shut down, accept it
@@ -1845,14 +1805,6 @@ void UShooterGameInstance::RemoveSplitScreenPlayers()
 
 FReply UShooterGameInstance::OnPairingUsePreviousProfile()
 {
-	// Do nothing (except hide the message) if they want to continue using previous profile
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-	if ( ShooterViewport != nullptr )
-	{
-		ShooterViewport->HideDialog();
-	}
-
 	return FReply::Handled();
 }
 
@@ -1911,20 +1863,7 @@ void UShooterGameInstance::HandleControllerPairingChanged( int GameUserIndex, co
 	// to continue controlling the old player with this controller
 	if ( ControlledLocalPlayer != nullptr && ControlledLocalPlayer != NewLocalPlayer )
 	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
-		if ( ShooterViewport != nullptr )
-		{
-			ShooterViewport->ShowDialog( 
-				nullptr,
-				EShooterDialogType::Generic,
-				NSLOCTEXT("ProfileMessages", "PairingChanged", "Your controller has been paired to another profile, would you like to switch to this new profile now? Selecting YES will sign out of the previous profile."),
-				NSLOCTEXT("DialogButtons", "YES", "A - YES"),
-				NSLOCTEXT("DialogButtons", "NO", "B - NO"),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnPairingUseNewProfile),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnPairingUsePreviousProfile)
-			);
-		}
+		// Controller is paired to another profile
 	}
 #endif
 }
@@ -1953,12 +1892,6 @@ void UShooterGameInstance::HandleControllerConnectionChange( bool bIsConnection,
 
 FReply UShooterGameInstance::OnControllerReconnectConfirm()
 {
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-	if(ShooterViewport)
-	{
-		ShooterViewport->HideDialog();
-	}
-
 	return FReply::Handled();
 }
 
@@ -2071,29 +2004,10 @@ bool UShooterGameInstance::IsLocalPlayerSignedIn(ULocalPlayer* LocalPlayer)
 
 bool UShooterGameInstance::ValidatePlayerForOnlinePlay(ULocalPlayer* LocalPlayer)
 {
-	// Get the viewport
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
 #if PLATFORM_XBOXONE
 	if (CurrentConnectionStatus != EOnlineServerConnectionStatus::Connected)
 	{
 		// Don't let them play online if they aren't connected to Xbox LIVE
-		if (ShooterViewport != NULL)
-		{
-			const FText Msg				= NSLOCTEXT("NetworkFailures", "ServiceDisconnected", "You must be connected to the Xbox LIVE service to play online.");
-			const FText OKButtonString	= NSLOCTEXT("DialogButtons", "OKAY", "OK");
-
-			ShooterViewport->ShowDialog( 
-				NULL,
-				EShooterDialogType::Generic,
-				Msg,
-				OKButtonString,
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-			);
-		}
-
 		return false;
 	}
 #endif
@@ -2101,22 +2015,6 @@ bool UShooterGameInstance::ValidatePlayerForOnlinePlay(ULocalPlayer* LocalPlayer
 	if (!IsLocalPlayerOnline(LocalPlayer))
 	{
 		// Don't let them play online if they aren't online
-		if (ShooterViewport != NULL)
-		{
-			const FText Msg				= NSLOCTEXT("NetworkFailures", "MustBeSignedIn", "You must be signed in to play online");
-			const FText OKButtonString	= NSLOCTEXT("DialogButtons", "OKAY", "OK");
-
-			ShooterViewport->ShowDialog( 
-				NULL,
-				EShooterDialogType::Generic,
-				Msg,
-				OKButtonString,
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-			);
-		}
-
 		return false;
 	}
 
@@ -2125,28 +2023,9 @@ bool UShooterGameInstance::ValidatePlayerForOnlinePlay(ULocalPlayer* LocalPlayer
 
 bool UShooterGameInstance::ValidatePlayerIsSignedIn(ULocalPlayer* LocalPlayer)
 {
-	// Get the viewport
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
-
 	if (!IsLocalPlayerSignedIn(LocalPlayer))
 	{
 		// Don't let them play online if they aren't online
-		if (ShooterViewport != NULL)
-		{
-			const FText Msg = NSLOCTEXT("NetworkFailures", "MustBeSignedIn", "You must be signed in to play online");
-			const FText OKButtonString = NSLOCTEXT("DialogButtons", "OKAY", "OK");
-
-			ShooterViewport->ShowDialog(
-				NULL,
-				EShooterDialogType::Generic,
-				Msg,
-				OKButtonString,
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-			);
-		}
-
 		return false;
 	}
 
@@ -2188,7 +2067,6 @@ void UShooterGameInstance::CleanupOnlinePrivilegeTask()
 void UShooterGameInstance::DisplayOnlinePrivilegeFailureDialogs(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
 {	
 	// Show warning that the user cannot play due to age restrictions
-	UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameViewportClient());
 	TWeakObjectPtr<ULocalPlayer> OwningPlayer;
 	if (GEngine)
 	{
@@ -2205,7 +2083,7 @@ void UShooterGameInstance::DisplayOnlinePrivilegeFailureDialogs(const FUniqueNet
 		}
 	}
 	
-	if (ShooterViewport != NULL && OwningPlayer.IsValid())
+	if (OwningPlayer.IsValid())
 	{
 		if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::AccountTypeFailure) != 0)
 		{
@@ -2217,63 +2095,23 @@ void UShooterGameInstance::DisplayOnlinePrivilegeFailureDialogs(const FUniqueNet
 		}
 		else if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::RequiredSystemUpdate) != 0)
 		{
-			ShooterViewport->ShowDialog(
-				OwningPlayer.Get(),
-				EShooterDialogType::Generic,
-				NSLOCTEXT("OnlinePrivilegeResult", "RequiredSystemUpdate", "A required system update is available.  Please upgrade to access online features."),
-				NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-				);
+			
 		}
 		else if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::RequiredPatchAvailable) != 0)
 		{
-			ShooterViewport->ShowDialog(
-				OwningPlayer.Get(),
-				EShooterDialogType::Generic,
-				NSLOCTEXT("OnlinePrivilegeResult", "RequiredPatchAvailable", "A required game patch is available.  Please upgrade to access online features."),
-				NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-				);
+			
 		}
 		else if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::AgeRestrictionFailure) != 0)
 		{
-			ShooterViewport->ShowDialog(
-				OwningPlayer.Get(),
-				EShooterDialogType::Generic,
-				NSLOCTEXT("OnlinePrivilegeResult", "AgeRestrictionFailure", "Cannot play due to age restrictions!"),
-				NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-				);
+			
 		}
 		else if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::UserNotFound) != 0)
 		{
-			ShooterViewport->ShowDialog(
-				OwningPlayer.Get(),
-				EShooterDialogType::Generic,
-				NSLOCTEXT("OnlinePrivilegeResult", "UserNotFound", "Cannot play due invalid user!"),
-				NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-				);
+			
 		}
 		else if ((PrivilegeResults & (uint32)IOnlineIdentity::EPrivilegeResults::GenericFailure) != 0)
 		{
-			ShooterViewport->ShowDialog(
-				OwningPlayer.Get(),
-				EShooterDialogType::Generic,
-				NSLOCTEXT("OnlinePrivilegeResult", "GenericFailure", "Cannot play online.  Check your network connection."),
-				NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-				FText::GetEmpty(),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric),
-				FOnClicked::CreateUObject(this, &UShooterGameInstance::OnConfirmGeneric)
-				);
+			
 		}
 	}
 }

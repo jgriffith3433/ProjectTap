@@ -8,13 +8,17 @@
 #include "OnlineSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/NetworkDelegates.h"
-#include "UI/ShooterUIManager.h"
+#include <GameSparksRT/IRTSession.hpp>
+#include "Online/RTSessionInfo.h"
+#include "Online/RTSessionListener.h"
 #include "ShooterGameInstance.generated.h"
 
 class FVariantData;
 class FShooterMainMenu;
 class FShooterMessageMenu;
 class AShooterGameSession;
+
+using namespace GameSparks::RT;
 
 namespace ShooterGameInstanceState
 {
@@ -214,6 +218,14 @@ public:
 	/** Resets Play Together PS4 system event info after it's been handled */
 	void ResetPlayTogetherInfo() { PlayTogetherInfo = FShooterPlayTogetherInfo(); }
 
+	void Login(int32 LocalUserNum, const FString& UserName, const FString& Password);
+	void Logout(int32 LocalUserNum);
+
+	TSharedPtr<IRTSession> RTSession;
+	TSharedPtr<IRTSessionListener> RTListener;
+	
+	void CreateNewRTSession(TSharedPtr<RTSessionInfo> SessionInfo);
+	void OnJoinRTSession(const FString& MapPath);
 private:
 
 	UPROPERTY(config)
@@ -232,8 +244,6 @@ private:
 	void SetControllerAndAdvanceToMainMenu(const int ControllerIndex);
 	FReply OnConfirmGeneric();
 	FReply OnContinueWithoutSavingConfirm();
-
-	void Logout(int32 LocalUserNum);
 
 	FOnConnectionStatusChangedDelegate OnConnectionStatusChangedDelegate;
 	FDelegateHandle OnConnectionStatusChangedDelegateHandle;
@@ -345,8 +355,6 @@ private:
 	void HideAdventureScreen();
 	void AddNetworkFailureHandlers();
 	void RemoveNetworkFailureHandlers();
-
-	AShooterUIManager* GetUIManager();
 
 	/** Called when there is an error trying to travel to a local session */
 	void TravelLocalSessionFailure(UWorld *World, ETravelFailure::Type FailureType, const FString& ErrorString);

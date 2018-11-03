@@ -17,7 +17,6 @@
 #include "OnlineSessionInterface.h"
 #include "ShooterGameInstance.h"
 #include "ShooterLeaderboards.h"
-#include "ShooterGameViewportClient.h"
 #include "Sound/SoundNodeLocalPlayer.h"
 #include "AudioThread.h"
 
@@ -1339,13 +1338,6 @@ void AShooterPlayerController::PreClientTravel(const FString& PendingURL, ETrave
 
 	if ( GetWorld() != NULL )
 	{
-		UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>( GetWorld()->GetGameViewport() );
-
-		if ( ShooterViewport != NULL )
-		{
-			ShooterViewport->ShowLoadingScreen();
-		}
-		
 		AShooterHUD* ShooterHUD = Cast<AShooterHUD>(GetHUD());
 		if (ShooterHUD != nullptr)
 		{

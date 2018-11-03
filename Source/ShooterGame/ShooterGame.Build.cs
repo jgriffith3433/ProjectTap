@@ -37,7 +37,6 @@ public class ShooterGame : ModuleRules
                 "UMG",
 				"Slate",
 				"SlateCore",
-                //"OnlineSubsystem",
                 "OnlineSubsystemGameSparks",
                 "ShooterGameLoadingScreen",
 				"Json",

@@ -17,3 +17,31 @@ void AShooterPlayerController_Menu::PostInitializeComponents()
 
 	FShooterStyle::Initialize();
 }
+
+bool AShooterPlayerController_Menu::PlayMission(FString LocationName, FString MissionName)
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		return GameInstance->LoadMissionLevel(LocationName, MissionName);
+	}
+	return false;
+}
+
+void AShooterPlayerController_Menu::OnLoginPressed(FString UserName, FString Password)
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->Login(0, UserName, Password);
+	}
+}
+
+void AShooterPlayerController_Menu::OnLogoutPressed()
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->Logout(0);
+	}
+}

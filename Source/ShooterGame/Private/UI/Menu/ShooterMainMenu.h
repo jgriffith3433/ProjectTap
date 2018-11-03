@@ -9,7 +9,17 @@
 #include "Widgets/SShooterLeaderboard.h"
 #include "Widgets/SShooterSplitScreenLobbyWidget.h"
 #include "ShooterOptions.h"
+#include "GameSparks/generated/GSMessages.h"
+#include "GameSparks/generated/GSRequests.h"
+#include "GameSparks/generated/GSResponses.h"
+#include "GameSparks/GS.h"
+#include "GameSparksModule.h"
 
+using namespace GameSparks::Core;
+using namespace GameSparks::Api::Requests;
+using namespace GameSparks::Api::Responses;
+using namespace GameSparks::Api::Types;
+using namespace GameSparks::Api::Messages;
 
 class FShooterMainMenu : public TSharedFromThis<FShooterMainMenu>, public FTickableGameObject
 {
@@ -216,8 +226,8 @@ protected:
 	/** Join server, but login necessary first. */
 	void OnJoinServerLoginRequired();
 
-	/** Join server */
-	void OnJoinServer();
+	/** Join deathmatch */
+	void OnJoinDeathmatch();
 
 	/** Show leaderboard */
 	void OnShowLeaderboard();

@@ -14,7 +14,6 @@
 #include "SShooterConfirmationDialog.h"
 #include "ShooterMenuItemWidgetStyle.h"
 #include "ShooterGameUserSettings.h"
-#include "ShooterGameViewportClient.h"
 #include "ShooterPersistentUser.h"
 #include "Player/ShooterLocalPlayer.h"
 
@@ -184,108 +183,108 @@ void FShooterMainMenu::Construct(TWeakObjectPtr<UShooterGameInstance> _GameInsta
 
 		// HOST ONLINE menu option
 		{
-			MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostCustom", "HOST CUSTOM"), this, &FShooterMainMenu::OnHostOnlineSelected);
+			//MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostCustom", "HOST CUSTOM"), this, &FShooterMainMenu::OnHostOnlineSelected);
 
 			// submenu under "HOST ONLINE"
-			MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
+			//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
 
-			TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
-			NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
+			//TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
+			//NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
 
-			HostOnlineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
+			//HostOnlineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
 		}
 
 		// JOIN menu option
 		{
 			// JOIN menu option
-			MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("FindCustom", "FIND CUSTOM"), this, &FShooterMainMenu::OnJoinServer);
+			//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Deathmatch", "DEATHMATCH"), this, &FShooterMainMenu::OnJoinDeathmatch);
 
 			// Server list widget that will be called up if appropriate
-			MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
+			//MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
 		}
 
 		// QUICK MATCH menu option
 		{
-			MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelected);
+			//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelected);
 		}
 
 		// HOST OFFLINE menu option
 		{
-			MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("PlayOffline", "PLAY OFFLINE"),this, &FShooterMainMenu::OnHostOfflineSelected);
+			//MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("PlayOffline", "PLAY OFFLINE"),this, &FShooterMainMenu::OnHostOfflineSelected);
 
 			// submenu under "HOST OFFLINE"
-			MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
+			//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
 
-			TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
-			NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
+			//TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
+			//NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
 
-			HostOfflineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
+			//HostOfflineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
 		}
 #elif SHOOTER_CONSOLE_UI
 		TSharedPtr<FShooterMenuItem> MenuItem;
 
 		// HOST ONLINE menu option
 		{
-			HostOnlineMenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostOnline", "HOST ONLINE"), this, &FShooterMainMenu::OnHostOnlineSelected);
+			//HostOnlineMenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostOnline", "HOST ONLINE"), this, &FShooterMainMenu::OnHostOnlineSelected);
 
 			// submenu under "HOST ONLINE"
 #if LOGIN_REQUIRED_FOR_ONLINE_PLAY
-			MenuHelper::AddMenuItemSP(HostOnlineMenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelectedHostOnlineLoginRequired);
+			//MenuHelper::AddMenuItemSP(HostOnlineMenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelectedHostOnlineLoginRequired);
 #else
-			MenuHelper::AddMenuItemSP(HostOnlineMenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelectedHostOnline);
+			//MenuHelper::AddMenuItemSP(HostOnlineMenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelectedHostOnline);
 #endif
 
-			TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(HostOnlineMenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);
-			NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
+			//TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(HostOnlineMenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);
+			//NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
 
-			HostOnlineMapOption = MenuHelper::AddMenuOption(HostOnlineMenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
+			//HostOnlineMapOption = MenuHelper::AddMenuOption(HostOnlineMenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
 #if CONSOLE_LAN_SUPPORTED
-			HostLANItem = MenuHelper::AddMenuOptionSP(HostOnlineMenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
-			HostLANItem->SelectedMultiChoice = bIsLanMatch;
+			//HostLANItem = MenuHelper::AddMenuOptionSP(HostOnlineMenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
+			//HostLANItem->SelectedMultiChoice = bIsLanMatch;
 #endif
 		}
 
 		// HOST OFFLINE menu option
 		{
-			MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostOffline", "HOST OFFLINE"),this, &FShooterMainMenu::OnHostOfflineSelected);
+			//MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("HostOffline", "HOST OFFLINE"),this, &FShooterMainMenu::OnHostOfflineSelected);
 
 			// submenu under "HOST OFFLINE"
-			MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
+			//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnSplitScreenSelected);
 
-			TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
-			NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
+			//TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);				
+			//NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;																
 
-			HostOfflineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
+			//HostOfflineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
 		}
 
 		// QUICK MATCH menu option
 		{
 #if LOGIN_REQUIRED_FOR_ONLINE_PLAY
-			MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelectedLoginRequired);
+			//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelectedLoginRequired);
 #else
-			MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelected);
+			//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("QuickMatch", "QUICK MATCH"), this, &FShooterMainMenu::OnQuickMatchSelected);
 #endif
 		}
 
 		// JOIN menu option
 		{
 			// JOIN menu option
-			MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Join", "JOIN"), this, &FShooterMainMenu::OnJoinSelected);
+			//MenuItem = MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Deathmatch", "DEATHMATCH"), this, &FShooterMainMenu::OnJoinSelected);
 
 			// submenu under "join"
 #if LOGIN_REQUIRED_FOR_ONLINE_PLAY
-			MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Server", "SERVER"), this, &FShooterMainMenu::OnJoinServerLoginRequired);
+			//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Server", "SERVER"), this, &FShooterMainMenu::OnJoinServerLoginRequired);
 #else
-			MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Server", "SERVER"), this, &FShooterMainMenu::OnJoinServer);
+			//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Server", "SERVER"), this, &FShooterMainMenu::OnJoinServer);
 #endif
-			JoinMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), JoinMapList);
+			//JoinMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), JoinMapList);
 
 			// Server list widget that will be called up if appropriate
-			MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
+			//MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
 
 #if CONSOLE_LAN_SUPPORTED
-			JoinLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
-			JoinLANItem->SelectedMultiChoice = bIsLanMatch;
+			//JoinLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
+			//JoinLANItem->SelectedMultiChoice = bIsLanMatch;
 #endif
 		}
 
@@ -294,48 +293,48 @@ void FShooterMainMenu::Construct(TWeakObjectPtr<UShooterGameInstance> _GameInsta
 		// HOST menu option
 		MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("ADV", "Adventure"), this, &FShooterMainMenu::OnUIGoToAdventureMenu);
 
-		MenuItem = MenuHelper::AddMenuItem(RootMenuItem, LOCTEXT("Host", "HOST"));
+		//MenuItem = MenuHelper::AddMenuItem(RootMenuItem, LOCTEXT("Host", "HOST"));
 
 		// submenu under "host"
-		MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("FFALong", "FREE FOR ALL"), this, &FShooterMainMenu::OnUIHostFreeForAll);
-		MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnUIHostTeamDeathMatch);
+		//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("FFALong", "FREE FOR ALL"), this, &FShooterMainMenu::OnUIHostFreeForAll);
+		//MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("TDMLong", "TEAM DEATHMATCH"), this, &FShooterMainMenu::OnUIHostTeamDeathMatch);
 
-		TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);
-		NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;
+		//TSharedPtr<FShooterMenuItem> NumberOfBotsOption = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("NumberOfBots", "NUMBER OF BOTS"), BotsCountList, this, &FShooterMainMenu::BotCountOptionChanged);
+		//NumberOfBotsOption->SelectedMultiChoice = BotsCountOpt;
 
-		HostOnlineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
+		//HostOnlineMapOption = MenuHelper::AddMenuOption(MenuItem, LOCTEXT("SELECTED_LEVEL", "Map"), MapList);
 
-		HostLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
-		HostLANItem->SelectedMultiChoice = bIsLanMatch;
+		//HostLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
+		//HostLANItem->SelectedMultiChoice = bIsLanMatch;
 
-		RecordDemoItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("RecordDemo", "Record Demo"), OnOffList, this, &FShooterMainMenu::RecordDemoChanged);
-		RecordDemoItem->SelectedMultiChoice = bIsRecordingDemo;
+		//RecordDemoItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("RecordDemo", "Record Demo"), OnOffList, this, &FShooterMainMenu::RecordDemoChanged);
+		//RecordDemoItem->SelectedMultiChoice = bIsRecordingDemo;
 
 		// JOIN menu option
 		MenuItem = MenuHelper::AddMenuItem(RootMenuItem, LOCTEXT("Join", "JOIN"));
 
 		// submenu under "join"
-		MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Server", "SERVER"), this, &FShooterMainMenu::OnJoinServer);
-		JoinLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
-		JoinLANItem->SelectedMultiChoice = bIsLanMatch;
+		MenuHelper::AddMenuItemSP(MenuItem, LOCTEXT("Deathmatch", "DEATHMATCH"), this, &FShooterMainMenu::OnJoinDeathmatch);
+		//JoinLANItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("LanMatch", "LAN"), OnOffList, this, &FShooterMainMenu::LanMatchChanged);
+		//JoinLANItem->SelectedMultiChoice = bIsLanMatch;
 
-		DedicatedItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("Dedicated", "Dedicated"), OnOffList, this, &FShooterMainMenu::DedicatedServerChanged);
-		DedicatedItem->SelectedMultiChoice = bIsDedicatedServer;
+		//DedicatedItem = MenuHelper::AddMenuOptionSP(MenuItem, LOCTEXT("Dedicated", "Dedicated"), OnOffList, this, &FShooterMainMenu::DedicatedServerChanged);
+		//DedicatedItem->SelectedMultiChoice = bIsDedicatedServer;
 
 		// Server list widget that will be called up if appropriate
-		MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
+		//MenuHelper::AddCustomMenuItem(JoinServerItem,SAssignNew(ServerListWidget,SShooterServerList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
 #endif
 
 		// Leaderboards
-		MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Leaderboards", "LEADERBOARDS"), this, &FShooterMainMenu::OnShowLeaderboard);
-		MenuHelper::AddCustomMenuItem(LeaderboardItem,SAssignNew(LeaderboardWidget,SShooterLeaderboard).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
+		//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Leaderboards", "LEADERBOARDS"), this, &FShooterMainMenu::OnShowLeaderboard);
+		//MenuHelper::AddCustomMenuItem(LeaderboardItem,SAssignNew(LeaderboardWidget,SShooterLeaderboard).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
 
 #if !SHOOTER_CONSOLE_UI
 
 		// Demos
 		{
-			MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Demos", "DEMOS"), this, &FShooterMainMenu::OnShowDemoBrowser);
-			MenuHelper::AddCustomMenuItem(DemoBrowserItem,SAssignNew(DemoListWidget,SShooterDemoList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
+			//MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("Demos", "DEMOS"), this, &FShooterMainMenu::OnShowDemoBrowser);
+			//MenuHelper::AddCustomMenuItem(DemoBrowserItem,SAssignNew(DemoListWidget,SShooterDemoList).OwnerWidget(MenuWidget).PlayerOwner(GetPlayerOwner()));
 		}
 #endif
 
@@ -535,12 +534,6 @@ void FShooterMainMenu::OnUserCanPlayOnlineQuickMatch(const FUniqueNetId& UserId,
 
 FReply FShooterMainMenu::OnConfirmGeneric()
 {
-	UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>(GameInstance->GetGameViewportClient());
-	if (ShooterViewport)
-	{
-		ShooterViewport->HideDialog();
-	}
-
 	return FReply::Handled();
 }
 
@@ -1167,17 +1160,6 @@ void FShooterMainMenu::HostTeamDeathMatch()
 
 FReply FShooterMainMenu::OnConfirm()
 {
-	if (GEngine && GEngine->GameViewport)
-	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GEngine->GameViewport);
-
-		if (ShooterViewport)
-		{
-			// Hide the previous dialog
-			ShooterViewport->HideDialog();
-		}
-	}
-
 	return FReply::Handled();
 }
 
@@ -1222,7 +1204,7 @@ void FShooterMainMenu::OnLoginCompleteJoin(int32 LocalUserNum, bool bWasSuccessf
 {
 	IOnlineSubsystem::Get()->GetIdentityInterface()->ClearOnLoginCompleteDelegate_Handle(LocalUserNum, OnLoginCompleteDelegateHandle);
 
-	OnJoinServer();
+	//OnJoinServer();
 }
 
 void FShooterMainMenu::OnJoinSelected()
@@ -1237,7 +1219,7 @@ void FShooterMainMenu::OnJoinSelected()
 	MenuWidget->EnterSubMenu();
 }
 
-void FShooterMainMenu::OnJoinServer()
+void FShooterMainMenu::OnJoinDeathmatch()
 {
 #if SHOOTER_CONSOLE_UI
 	if ( !ValidatePlayerForOnlinePlay(GetPlayerOwner()) )
@@ -1248,7 +1230,7 @@ void FShooterMainMenu::OnJoinServer()
 
 	StartOnlinePrivilegeTask(IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateSP(this, &FShooterMainMenu::OnUserCanPlayOnlineJoin));
 }
-
+#pragma optimize( "", off )
 void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
 {
 	CleanupOnlinePrivilegeTask();
@@ -1256,7 +1238,6 @@ void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUser
 
 	if (PrivilegeResults == (uint32)IOnlineIdentity::EPrivilegeResults::NoFailures)
 	{
-
 		//make sure to switch to custom match type so we don't instead use Quick type
 		MatchType = EMatchType::Custom;
 
@@ -1265,7 +1246,6 @@ void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUser
 			GameInstance->SetOnlineMode(bIsLanMatch ? EOnlineMode::LAN : EOnlineMode::Online);
 		}
 
-		MatchType = EMatchType::Custom;
 		// Grab the map filter if there is one
 		FString SelectedMapFilterName("Any");
 		if( JoinMapOption.IsValid())
@@ -1277,42 +1257,33 @@ void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUser
 			}
 		}
 
-#if SHOOTER_CONSOLE_UI
-		UGameViewportClient* const GVC = GEngine->GameViewport;
-#if PLATFORM_PS4 || MAX_LOCAL_PLAYERS == 1
-		// Show server menu (skip splitscreen)
-		AddMenuToGameViewport();
-		FSlateApplication::Get().SetKeyboardFocus(MenuWidget);
+		GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+		gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match found!"));
+			TSharedPtr<RTSessionInfo> SessionInfo = MakeShareable(new RTSessionInfo(response));
+			GameInstance->CreateNewRTSession(SessionInfo);
+		});
 
-		MenuWidget->NextMenu = JoinServerItem->SubMenu;
-		ServerListWidget->BeginServerSearch(bIsLanMatch, bIsDedicatedServer, SelectedMapFilterName);
-		ServerListWidget->UpdateServerList();
-		MenuWidget->EnterSubMenu();
-#else
-		// Show splitscreen menu
-		RemoveMenuFromGameViewport();	
-		GVC->AddViewportWidgetContent(SplitScreenLobbyWidgetContainer.ToSharedRef());
+		gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match not found..."));
+		});
 
-		SplitScreenLobbyWidget->Clear();
-		FSlateApplication::Get().SetKeyboardFocus(SplitScreenLobbyWidget);
+		gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
+		});
 
-		SplitScreenLobbyWidget->SetIsJoining( true );
-#endif
-#else
-		MenuWidget->NextMenu = JoinServerItem->SubMenu;
-		//FString SelectedMapFilterName = JoinMapOption->MultiChoice[JoinMapOption->SelectedMultiChoice].ToString();
-
-		ServerListWidget->BeginServerSearch(bIsLanMatch, bIsDedicatedServer, SelectedMapFilterName);
-		ServerListWidget->UpdateServerList();
-		MenuWidget->EnterSubMenu();
-#endif
+		UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
+		MatchmakingRequest request(gs);
+		request.SetMatchShortCode("DEATHMATCH");
+		request.SetSkill(0);
+		request.Send();
 	}
 	else if (GameInstance.IsValid())
 	{
 		GameInstance->DisplayOnlinePrivilegeFailureDialogs(UserId, Privilege, PrivilegeResults);
 	}
 }
-
+#pragma optimize( "", on )
 void FShooterMainMenu::OnShowLeaderboard()
 {
 	MenuWidget->NextMenu = LeaderboardItem->SubMenu;

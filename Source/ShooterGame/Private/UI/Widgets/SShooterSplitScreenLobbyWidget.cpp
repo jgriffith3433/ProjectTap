@@ -6,7 +6,6 @@
 #include "ShooterMenuItemWidgetStyle.h"
 #include "ShooterMenuWidgetStyle.h"
 #include "SShooterConfirmationDialog.h"
-#include "ShooterGameViewportClient.h"
 
 #define LOCTEXT_NAMESPACE "ShooterGame.SplitScreenLobby"
 
@@ -391,13 +390,6 @@ void SShooterSplitScreenLobby::UnreadyPlayer( const int ControllerId )
 
 FReply SShooterSplitScreenLobby::OnOkOrCancel()
 {
-	UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>(GetGameInstance()->GetGameViewportClient());
-
-	if (ShooterViewport != NULL)
-	{
-		ShooterViewport->HideDialog();
-	}
-
 	return FReply::Handled();
 }
 
@@ -437,38 +429,7 @@ bool SShooterSplitScreenLobby::ConfirmSponsorsSatisfied() const
 
 void SShooterSplitScreenLobby::OnUserCanPlay(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
 {
-	if (PrivilegeResults != (uint32)IOnlineIdentity::EPrivilegeResults::NoFailures)
-	{
-		// Xbox shows its own system dialog currently
-#if PLATFORM_PS4
-		const auto OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub)
-		{
-			const auto Identity = OnlineSub->GetIdentityInterface();
-			if (Identity.IsValid())
-			{
-				FString Nickname = Identity->GetPlayerNickname(UserId);
-
-				// Show warning that the user cannot play due to age restrictions
-				UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GetGameInstance()->GetGameViewportClient());
-
-				if (ShooterViewport != NULL)
-				{
-					ShooterViewport->ShowDialog(
-						PlayerOwner.Get(),
-						EShooterDialogType::Generic,
-						FText::Format(NSLOCTEXT("ProfileMessages", "AgeRestrictionFmt", "{0} cannot play due to age restrictions!"), FText::FromString(Nickname)),
-						NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-						FText::GetEmpty(),
-						FOnClicked::CreateRaw(this, &SShooterSplitScreenLobby::OnOkOrCancel),
-						FOnClicked::CreateRaw(this, &SShooterSplitScreenLobby::OnOkOrCancel)
-						);
-				}
-			}
-		}
-#endif
-	}
-	else
+	if (PrivilegeResults == (uint32)IOnlineIdentity::EPrivilegeResults::NoFailures)
 	{
 		ReadyPlayer(PendingControllerId);
 	}
@@ -519,22 +480,6 @@ FReply SShooterSplitScreenLobby::OnKeyDown(const FGeometry& MyGeometry, const FK
 				}
 				else
 				{
-					// Show warning that the guest needs the sponsor
-					UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>(GameInstance->GetGameViewportClient());
-
-					if ( ShooterViewport != NULL )
-					{
-						ShooterViewport->ShowDialog( 
-							PlayerOwner.Get(),
-							EShooterDialogType::Generic,
-							NSLOCTEXT("ProfileMessages", "GuestAccountNeedsSponsor", "A guest account cannot play without its sponsor!"),
-							NSLOCTEXT("DialogButtons", "OKAY", "OK"),
-							FText::GetEmpty(),
-							FOnClicked::CreateRaw(this, &SShooterSplitScreenLobby::OnOkOrCancel),
-							FOnClicked::CreateRaw(this, &SShooterSplitScreenLobby::OnOkOrCancel)
-						);
-					}
-
 					return FReply::Handled();
 				}
 			}

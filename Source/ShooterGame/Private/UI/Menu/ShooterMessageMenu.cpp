@@ -4,7 +4,6 @@
 #include "ShooterStyle.h"
 #include "SShooterConfirmationDialog.h"
 #include "ShooterMessageMenu.h"
-#include "ShooterGameViewportClient.h"
 #include "ShooterGameInstance.h"
 
 #define LOCTEXT_NAMESPACE "ShooterGame.HUD.Menu"
@@ -14,42 +13,11 @@ void FShooterMessageMenu::Construct(TWeakObjectPtr<UShooterGameInstance> InGameI
 	GameInstance			= InGameInstance;
 	PlayerOwner				= InPlayerOwner;
 	PendingNextState		= InPendingNextState;
-
-	if ( ensure( GameInstance.IsValid() ) )
-	{
-		UShooterGameViewportClient* ShooterViewport = Cast<UShooterGameViewportClient>( GameInstance->GetGameViewportClient() );
-
-		if ( ShooterViewport )
-		{
-			// Hide the previous dialog
-			ShooterViewport->HideDialog();
-
-			// Show the new one
-			ShooterViewport->ShowDialog( 
-				PlayerOwner,
-				EShooterDialogType::Generic,
-				Message, 
-				OKButtonText, 
-				CancelButtonText, 
-				FOnClicked::CreateRaw(this, &FShooterMessageMenu::OnClickedOK),
-				FOnClicked::CreateRaw(this, &FShooterMessageMenu::OnClickedCancel)
-			);
-		}
-	}
 }
 
 void FShooterMessageMenu::RemoveFromGameViewport()
 {
-	if ( ensure( GameInstance.IsValid() ) )
-	{
-		UShooterGameViewportClient * ShooterViewport = Cast<UShooterGameViewportClient>( GameInstance->GetGameViewportClient() );
-
-		if ( ShooterViewport )
-		{
-			// Hide the previous dialog
-			ShooterViewport->HideDialog();
-		}
-	}
+	
 }
 
 void FShooterMessageMenu::HideDialogAndGotoNextState()
