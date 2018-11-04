@@ -1230,7 +1230,7 @@ void FShooterMainMenu::OnJoinDeathmatch()
 
 	StartOnlinePrivilegeTask(IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateSP(this, &FShooterMainMenu::OnUserCanPlayOnlineJoin));
 }
-#pragma optimize( "", off )
+
 void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
 {
 	CleanupOnlinePrivilegeTask();
@@ -1256,34 +1256,13 @@ void FShooterMainMenu::OnUserCanPlayOnlineJoin(const FUniqueNetId& UserId, EUser
 				SelectedMapFilterName = JoinMapOption->MultiChoice[FilterChoice].ToString();
 			}
 		}
-
-		GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
-		gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
-			UE_LOG(LogOnline, Log, TEXT("GSM| Match found!"));
-			TSharedPtr<RTSessionInfo> SessionInfo = MakeShareable(new RTSessionInfo(response));
-			GameInstance->CreateNewRTSession(SessionInfo);
-		});
-
-		gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
-			UE_LOG(LogOnline, Log, TEXT("GSM| Match not found..."));
-		});
-
-		gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
-			UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
-		});
-
-		UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
-		MatchmakingRequest request(gs);
-		request.SetMatchShortCode("DEATHMATCH");
-		request.SetSkill(0);
-		request.Send();
 	}
 	else if (GameInstance.IsValid())
 	{
 		GameInstance->DisplayOnlinePrivilegeFailureDialogs(UserId, Privilege, PrivilegeResults);
 	}
 }
-#pragma optimize( "", on )
+
 void FShooterMainMenu::OnShowLeaderboard()
 {
 	MenuWidget->NextMenu = LeaderboardItem->SubMenu;

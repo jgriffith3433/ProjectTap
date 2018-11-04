@@ -18,6 +18,11 @@
 #include "Online/ShooterOnlineSessionClient.h"
 #include "OnlineFriendsInterface.h"
 #include "Online.h"
+#include "GameSparks/generated/GSMessages.h"
+#include "GameSparks/generated/GSRequests.h"
+#include "GameSparks/generated/GSResponses.h"
+#include "GameSparks/GS.h"
+#include "GameSparksModule.h"
 #include <cassert>
 
 FAutoConsoleVariable CVarShooterGameTestEncryption(TEXT("ShooterGame.TestEncryption"), 0, TEXT("If true, clients will send an encryption token with their request to join the server and attempt to encrypt the connection using a debug key. This is NOT SECURE and for demonstration purposes only."));
@@ -70,6 +75,12 @@ FSlateColor SShooterWaitDialog::GetTextColor() const
 	fAlpha = fAlpha * 0.5f + 0.5f;
 	return FLinearColor(FColor(155, 164, 182, FMath::Clamp((int32)(fAlpha * 255.0f), 0, 255)));
 }
+
+using namespace GameSparks::Core;
+using namespace GameSparks::Api::Requests;
+using namespace GameSparks::Api::Responses;
+using namespace GameSparks::Api::Types;
+using namespace GameSparks::Api::Messages;
 
 namespace ShooterGameInstanceState
 {
@@ -201,6 +212,56 @@ void UShooterGameInstance::SetControllerAndAdvanceToMainMenu(const int Controlle
 	}
 }
 
+#pragma optimize( "", off )
+void UShooterGameInstance::FindDeathmatch()
+{
+	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+	gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
+		UE_LOG(LogOnline, Log, TEXT("GSM| Match found!"));
+		SessionInfo = MakeShareable(new RTSessionInfo(response));
+		CreateNewRTSession();
+	});
+
+	gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
+		UE_LOG(LogOnline, Log, TEXT("GSM| Match not found..."));
+	});
+
+	gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
+		UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
+		// so we're already matched. Add to the session
+		if (SessionInfo.IsValid())
+		{
+			SessionInfo->UpdateSessionInfo(response);
+		}
+		else
+		{
+			UE_LOG(LogOnline, Log, TEXT("GSM| Canceling Previous Matchmaking..."));
+			MatchmakingRequest request(gs);
+			request.SetMatchShortCode("DEATHMATCH");
+			request.SetSkill(0);
+			request.SetAction("cancel");
+			request.Send([&](GS& gsInstance, const MatchmakingResponse& response) {
+				if (response.GetHasErrors())
+				{
+					FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+					UE_LOG(LogTemp, Warning, TEXT("%s"), *JSONString);
+				}
+			}, 60);
+		}
+	});
+	UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
+	MatchmakingRequest request(gs);
+	request.SetMatchShortCode("DEATHMATCH");
+	request.SetSkill(0);
+	request.Send([&](GS& gsInstance, const MatchmakingResponse& response) {
+		if (response.GetHasErrors())
+		{
+			FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+			UE_LOG(LogTemp, Warning, TEXT("%s"), *JSONString);
+		}
+	}, 60);
+}
+
 void UShooterGameInstance::Login(int32 LocalUserNum, const FString& UserName, const FString& Password)
 {
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
@@ -234,7 +295,8 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 		if (MenuPC)
 		{
-			MenuPC->DisplayName = user->GetDisplayName();
+			MenuPC->UserProfile = NewObject<UUserProfile>();
+			MenuPC->UserProfile->DisplayName = user->GetDisplayName();
 			MenuPC->ShowMainMenu();
 		}
 
@@ -305,7 +367,7 @@ void UShooterGameInstance::OnUserCanPlay(const FUniqueNetId& UserId, EUserPrivil
 	}
 }
 
-void UShooterGameInstance::CreateNewRTSession(TSharedPtr<RTSessionInfo> SessionInfo)
+void UShooterGameInstance::CreateNewRTSession()
 {
 	RTListener = MakeShareable(new RTSessionListener(this));
 	RTSession = MakeShareable(GameSparksRT::SessionBuilder()
@@ -316,6 +378,11 @@ void UShooterGameInstance::CreateNewRTSession(TSharedPtr<RTSessionInfo> SessionI
 		.Build());
 
 	RTSession->Start();
+}
+
+void UShooterGameInstance::UpdateRTSession()
+{
+	
 }
 
 void UShooterGameInstance::OnJoinRTSession(const FString& MapPath)
@@ -380,6 +447,13 @@ void UShooterGameInstance::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccess
 
 void UShooterGameInstance::Shutdown()
 {
+	if (RTSession.IsValid())
+	{
+		RTSession->Stop();
+		RTSession.Reset();
+	}
+	//UGameSparksModule::GetModulePtr()->GetGSInstance().Disconnect();
+	
 	Super::Shutdown();
 
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
@@ -389,11 +463,8 @@ void UShooterGameInstance::Shutdown()
 
 	// Unregister ticker delegate
 	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
-
-	RTSession.Reset();
-	UGameSparksModule::GetModulePtr()->GetGSInstance().Disconnect();
-	Logout(0);
 }
+#pragma optimize( "", on )
 
 void UShooterGameInstance::HandleSessionFailure( const FUniqueNetId& NetId, ESessionFailure::Type FailureType )
 {
@@ -1005,7 +1076,8 @@ void UShooterGameInstance::BeginMainMenuState()
 		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 		if (MenuPC)
 		{
-			MenuPC->DisplayName = user->GetDisplayName();
+			MenuPC->UserProfile = NewObject<UUserProfile>();
+			MenuPC->UserProfile->DisplayName = user->GetDisplayName();
 			MenuPC->ShowMainMenu();
 		}
 	}
@@ -1253,11 +1325,8 @@ bool UShooterGameInstance::HostQuickSession(ULocalPlayer& LocalPlayer, const FOn
 	return false;
 }
 
-bool UShooterGameInstance::LoadMissionLevel(const FString& LocationName, const FString& MissionName)
+bool UShooterGameInstance::LoadMissionLevel(const FString& MapPath)
 {
-	FString MapPath = FString("/Game/Maps/");
-	MapPath.Append(LocationName).Append("/").Append(MissionName);
-	
 	if ((PendingState == CurrentState) || (PendingState == ShooterGameInstanceState::None))
 	{
 		// Go ahead and go into loading state now
@@ -1333,7 +1402,7 @@ bool UShooterGameInstance::JoinSession(ULocalPlayer* LocalPlayer, int32 SessionI
 		OnJoinSessionCompleteDelegateHandle = GameSession->OnJoinSessionComplete().AddUObject(this, &UShooterGameInstance::OnJoinSessionComplete);
 		if (GameSession->JoinSession(LocalPlayer->GetPreferredUniqueNetId().GetUniqueNetId(), NAME_GameSession, SessionIndexInSearchResults))
 		{
-			// If any error occured in the above, pending state would be set
+			// If any error occurred in the above, pending state would be set
 			if ( (PendingState == CurrentState) || (PendingState == ShooterGameInstanceState::None) )
 			{
 				// Go ahead and go into loading state now

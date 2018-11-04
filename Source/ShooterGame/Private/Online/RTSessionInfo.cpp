@@ -16,6 +16,15 @@ RTSessionInfo::RTSessionInfo(MatchFoundMessage message)
 	}
 }
 
+void RTSessionInfo::UpdateSessionInfo(MatchUpdatedMessage message)
+{
+	PlayerList.clear();
+	for (std::vector<Participant>::iterator it = message.GetParticipants().begin(); it != message.GetParticipants().end(); ++it)
+	{
+		PlayerList.push_back(RTPlayer(*it));
+	}
+}
+
 RTSessionInfo::~RTSessionInfo()
 {
 }

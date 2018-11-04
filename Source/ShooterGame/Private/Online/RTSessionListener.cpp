@@ -11,14 +11,17 @@ RTSessionListener::RTSessionListener(UShooterGameInstance* _GameInstance)
 
 void RTSessionListener::OnPlayerConnect(int peerId)
 {
+	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPlayerConnect"));
 }
 
 void RTSessionListener::OnPlayerDisconnect(int peerId)
 {
+	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPlayerDisconnect"));
 }
 
 void RTSessionListener::OnReady(bool ready)
 {
+	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnReady"));
 	if (ready)
 	{
 		GameInstance->OnJoinRTSession(FString("/Game/Maps/AlienLab/Lab_Deathmatch"));
@@ -27,6 +30,7 @@ void RTSessionListener::OnReady(bool ready)
 
 void RTSessionListener::OnPacket(const RTPacket& packet)
 {
+	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPacket"));
 }
 
 RTSessionListener::~RTSessionListener()

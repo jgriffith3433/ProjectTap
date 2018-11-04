@@ -17,6 +17,7 @@ class SHOOTERGAME_API RTSessionInfo
 {
 public:
 	RTSessionInfo(MatchFoundMessage message);
+	void UpdateSessionInfo(MatchUpdatedMessage message);
 	FString HostURL;
 	FString AccessToken;
 	FString PortID;

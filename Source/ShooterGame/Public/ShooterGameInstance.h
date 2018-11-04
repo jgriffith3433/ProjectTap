@@ -11,6 +11,7 @@
 #include <GameSparksRT/IRTSession.hpp>
 #include "Online/RTSessionInfo.h"
 #include "Online/RTSessionListener.h"
+#include "Online/UserProfile.h"
 #include "ShooterGameInstance.generated.h"
 
 class FVariantData;
@@ -119,7 +120,7 @@ public:
 	virtual void ReceivedNetworkEncryptionToken(const FString& EncryptionToken, const FOnEncryptionKeyResponse& Delegate) override;
 	virtual void ReceivedNetworkEncryptionAck(const FOnEncryptionKeyResponse& Delegate) override;
 
-	bool LoadMissionLevel(const FString& LocationName, const FString& MissionName);
+	bool LoadMissionLevel(const FString& MapPath);
 
 	bool HostGame(ULocalPlayer* LocalPlayer, const FString& GameType, const FString& InTravelURL);
 	bool JoinSession(ULocalPlayer* LocalPlayer, int32 SessionIndexInSearchResults);
@@ -220,11 +221,14 @@ public:
 
 	void Login(int32 LocalUserNum, const FString& UserName, const FString& Password);
 	void Logout(int32 LocalUserNum);
+	void FindDeathmatch();
 
+	TSharedPtr<RTSessionInfo> SessionInfo;
 	TSharedPtr<IRTSession> RTSession;
 	TSharedPtr<IRTSessionListener> RTListener;
 	
-	void CreateNewRTSession(TSharedPtr<RTSessionInfo> SessionInfo);
+	void CreateNewRTSession();
+	void UpdateRTSession();
 	void OnJoinRTSession(const FString& MapPath);
 private:
 

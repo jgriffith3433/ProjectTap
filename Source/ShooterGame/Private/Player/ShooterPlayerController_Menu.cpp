@@ -18,14 +18,23 @@ void AShooterPlayerController_Menu::PostInitializeComponents()
 	FShooterStyle::Initialize();
 }
 
-bool AShooterPlayerController_Menu::PlayMission(FString LocationName, FString MissionName)
+bool AShooterPlayerController_Menu::PlayMission(const FString& MapPath)
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
 	if (GameInstance)
 	{
-		return GameInstance->LoadMissionLevel(LocationName, MissionName);
+		return GameInstance->LoadMissionLevel(MapPath);
 	}
 	return false;
+}
+
+void AShooterPlayerController_Menu::PlayDeathmatch()
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		return GameInstance->FindDeathmatch();
+	}
 }
 
 void AShooterPlayerController_Menu::OnLoginPressed(FString UserName, FString Password)
