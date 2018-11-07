@@ -291,8 +291,7 @@ void FShooterMainMenu::Construct(TWeakObjectPtr<UShooterGameInstance> _GameInsta
 #else
 		TSharedPtr<FShooterMenuItem> MenuItem;
 		// HOST menu option
-		MenuHelper::AddMenuItemSP(RootMenuItem, LOCTEXT("ADV", "Adventure"), this, &FShooterMainMenu::OnUIGoToAdventureMenu);
-
+		
 		//MenuItem = MenuHelper::AddMenuItem(RootMenuItem, LOCTEXT("Host", "HOST"));
 
 		// submenu under "host"
@@ -1086,24 +1085,6 @@ void FShooterMainMenu::OnUIHostFreeForAll()
 	const FShooterMenuSoundsStyle& MenuSounds = FShooterStyle::Get().GetWidgetStyle<FShooterMenuSoundsStyle>("DefaultShooterMenuSoundsStyle");
 		MenuHelper::PlaySoundAndCall(World, MenuSounds.StartGameSound, GetPlayerOwnerControllerId(), this, &FShooterMainMenu::HostFreeForAll);
 	}
-}
-
-void FShooterMainMenu::OnUIGoToAdventureMenu()
-{
-	MenuWidget->LockControls(true);
-	MenuWidget->HideMenu();
-
-	UWorld* const World = GameInstance.IsValid() ? GameInstance->GetWorld() : nullptr;
-	if (World && GetPlayerOwnerControllerId() != -1)
-	{
-		const FShooterMenuSoundsStyle& MenuSounds = FShooterStyle::Get().GetWidgetStyle<FShooterMenuSoundsStyle>("DefaultShooterMenuSoundsStyle");
-		MenuHelper::PlaySoundAndCall(World, MenuSounds.StartGameSound, GetPlayerOwnerControllerId(), this, &FShooterMainMenu::GoToAdventureMenu);
-	}
-}
-
-void FShooterMainMenu::GoToAdventureMenu()
-{
-	GameInstance->GotoState(ShooterGameInstanceState::AdventureScreen);
 }
 
 void FShooterMainMenu::OnUIHostTeamDeathMatch()

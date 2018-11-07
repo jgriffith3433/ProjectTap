@@ -3,18 +3,26 @@
 #include "ShooterGame.h"
 #include "Player/ShooterPlayerController_Menu.h"
 #include "ShooterStyle.h"
+#include "UI/ChatInputProcessor.h"
 
 
 AShooterPlayerController_Menu::AShooterPlayerController_Menu(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bShowMouseCursor = true;
 	bEnableMouseOverEvents = true;
+	bChatCanHandleEnter = false;
+	bChatCanHandleEscape = false;
 }
 
 void AShooterPlayerController_Menu::PostInitializeComponents() 
 {
 	Super::PostInitializeComponents();
-
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		TSharedPtr<FChatInputProcessor> ChatInput(new FChatInputProcessor(GameInstance));
+		FSlateApplication::Get().RegisterInputPreProcessor(ChatInput);
+	}
 	FShooterStyle::Initialize();
 }
 
@@ -28,12 +36,21 @@ bool AShooterPlayerController_Menu::PlayMission(const FString& MapPath)
 	return false;
 }
 
-void AShooterPlayerController_Menu::PlayDeathmatch()
+void AShooterPlayerController_Menu::FindDeathmatches()
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
 	if (GameInstance)
 	{
-		return GameInstance->FindDeathmatch();
+		GameInstance->FindDeathmatches();
+	}
+}
+
+void AShooterPlayerController_Menu::FindQuickDeathmatch()
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->FindQuickDeathmatch();
 	}
 }
 
@@ -52,5 +69,23 @@ void AShooterPlayerController_Menu::OnLogoutPressed()
 	if (GameInstance)
 	{
 		GameInstance->Logout(0);
+	}
+}
+
+void AShooterPlayerController_Menu::SendChatMessage(FString ChatMessage)
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->SendServerChatMessage(TCHAR_TO_UTF8(*ChatMessage));
+	}
+}
+
+void AShooterPlayerController_Menu::SendChatMessageToPeer(int ToPeerId, FString ChatMessage)
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->SendPrivateChatMessage(ToPeerId, TCHAR_TO_UTF8(*ChatMessage));
 	}
 }

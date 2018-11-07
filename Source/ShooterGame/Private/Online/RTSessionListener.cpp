@@ -12,11 +12,13 @@ RTSessionListener::RTSessionListener(UShooterGameInstance* _GameInstance)
 void RTSessionListener::OnPlayerConnect(int peerId)
 {
 	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPlayerConnect"));
+	GameInstance->OnPlayerConnect(peerId);
 }
 
 void RTSessionListener::OnPlayerDisconnect(int peerId)
 {
 	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPlayerDisconnect"));
+	GameInstance->OnPlayerDisconnect(peerId);
 }
 
 void RTSessionListener::OnReady(bool ready)
@@ -31,8 +33,10 @@ void RTSessionListener::OnReady(bool ready)
 void RTSessionListener::OnPacket(const RTPacket& packet)
 {
 	UE_LOG(LogOnlineGame, Log, TEXT("GSM| OnPacket"));
+	GameInstance->OnPacket(packet);
 }
 
 RTSessionListener::~RTSessionListener()
 {
+	GameInstance = nullptr;
 }

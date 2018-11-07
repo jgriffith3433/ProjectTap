@@ -16,14 +16,14 @@ using namespace GameSparks::Api::Messages;
 class SHOOTERGAME_API RTSessionInfo
 {
 public:
-	RTSessionInfo(MatchFoundMessage message);
-	void UpdateSessionInfo(MatchUpdatedMessage message);
+	RTSessionInfo(const MatchDetailsResponse& message);
 	FString HostURL;
 	FString AccessToken;
 	FString PortID;
 	FString MatchID;
-	std::vector<RTPlayer> PlayerList;
-
+	int PeerId;
+	FString PlayerId;
+	TArray<RTPlayer> PlayerList;
 
 	~RTSessionInfo();
 };

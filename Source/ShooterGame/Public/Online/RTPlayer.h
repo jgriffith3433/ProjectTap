@@ -12,7 +12,9 @@ using namespace GameSparks::Api::Types;
 class SHOOTERGAME_API RTPlayer
 {
 public:
-	RTPlayer(Participant participant);
+	RTPlayer();
+	RTPlayer(Participant& participant);
+	RTPlayer(Player& gsPlayer);
 	FString DisplayName;
 	FString ID;
 	int32 PeerID;

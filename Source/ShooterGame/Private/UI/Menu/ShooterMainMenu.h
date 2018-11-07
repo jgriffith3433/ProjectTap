@@ -193,9 +193,6 @@ protected:
 	/** Plays StartGameSound sound and calls HostFreeForAll after sound is played */
 	void OnUIHostFreeForAll();
 
-	/** Plays StartGameSound sound and calls GoToAdventureMenu after sound is played */
-	void OnUIGoToAdventureMenu();
-
 	/** Plays StartGameSound sound and calls HostTeamDeathMatch after sound is played */
 	void OnUIHostTeamDeathMatch();
 
@@ -204,9 +201,6 @@ protected:
 
 	/** Hosts free for all game */
 	void HostFreeForAll();
-
-	/** Goes to the adventure menu */
-	void GoToAdventureMenu();
 
 	/** Hosts team deathmatch game */
 	void HostTeamDeathMatch();

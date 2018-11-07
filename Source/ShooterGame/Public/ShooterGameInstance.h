@@ -25,7 +25,6 @@ namespace ShooterGameInstanceState
 {
 	extern const FName None;
 	extern const FName LoginScreen;
-	extern const FName AdventureScreen;
 	extern const FName PendingInvite;
 	extern const FName MainMenu;
 	extern const FName MessageMenu;
@@ -221,22 +220,30 @@ public:
 
 	void Login(int32 LocalUserNum, const FString& UserName, const FString& Password);
 	void Logout(int32 LocalUserNum);
-	void FindDeathmatch();
+	void FindDeathmatches();
+	void FindQuickDeathmatch();
 
 	TSharedPtr<RTSessionInfo> SessionInfo;
 	TSharedPtr<IRTSession> RTSession;
 	TSharedPtr<IRTSessionListener> RTListener;
-	
+
 	void CreateNewRTSession();
-	void UpdateRTSession();
 	void OnJoinRTSession(const FString& MapPath);
+
+	void OnChatMessageReceived(int FromPeerId, std::string MessageText);
+	void SendPrivateChatMessage(int ToPeerId, std::string MessageText);
+	void SendChatMessage(std::string MessageText, std::vector<int> PeerIds);
+	void SendServerChatMessage(std::string MessageText);
+	void OnPlayerConnect(int PeerId);
+	void OnPlayerDisconnect(int PeerId);
+	void OnPacket(const RTPacket& packet);
+	bool OnEnterDown();
+	bool OnEscapeDown();
+
 private:
 
 	UPROPERTY(config)
 		FString LoginScreenMap;
-
-	UPROPERTY(config)
-		FString AdventureScreenMap;
 
 	UPROPERTY(config)
 		FString MainMenuMap;
@@ -339,14 +346,12 @@ private:
 
 	void BeginPendingInviteState();
 	void BeginLoginState();
-	void BeginAdventureState();
 	void BeginMainMenuState();
 	void BeginMessageMenuState();
 	void BeginPlayingState();
 
 	void EndPendingInviteState();
 	void EndLoginScreenState();
-	void EndAdventureScreenState();
 	void EndMainMenuState();
 	void EndMessageMenuState();
 	void EndPlayingState();
@@ -355,8 +360,6 @@ private:
 	void HideLoadingScreen();
 	void ShowLoginScreen();
 	void HideLoginScreen();
-	void ShowAdventureScreen();
-	void HideAdventureScreen();
 	void AddNetworkFailureHandlers();
 	void RemoveNetworkFailureHandlers();
 

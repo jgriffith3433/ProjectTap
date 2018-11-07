@@ -23,6 +23,7 @@
 #include "GameSparks/generated/GSResponses.h"
 #include "GameSparks/GS.h"
 #include "GameSparksModule.h"
+#include <GameSparksRT/RTData.hpp>
 #include <cassert>
 
 FAutoConsoleVariable CVarShooterGameTestEncryption(TEXT("ShooterGame.TestEncryption"), 0, TEXT("If true, clients will send an encryption token with their request to join the server and attempt to encrypt the connection using a debug key. This is NOT SECURE and for demonstration purposes only."));
@@ -86,7 +87,6 @@ namespace ShooterGameInstanceState
 {
 	const FName None = FName(TEXT("None"));
 	const FName LoginScreen = FName(TEXT("Login"));
-	const FName AdventureScreen = FName(TEXT("Adventure"));
 	const FName PendingInvite = FName(TEXT("PendingInvite"));
 	const FName MainMenu = FName(TEXT("MainMenu"));
 	const FName MessageMenu = FName(TEXT("MessageMenu"));
@@ -213,13 +213,31 @@ void UShooterGameInstance::SetControllerAndAdvanceToMainMenu(const int Controlle
 }
 
 #pragma optimize( "", off )
-void UShooterGameInstance::FindDeathmatch()
+void UShooterGameInstance::FindDeathmatches()
+{
+	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+	
+}
+
+void UShooterGameInstance::FindQuickDeathmatch()
 {
 	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
 	gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
-		UE_LOG(LogOnline, Log, TEXT("GSM| Match found!"));
-		SessionInfo = MakeShareable(new RTSessionInfo(response));
-		CreateNewRTSession();
+		UE_LOG(LogOnline, Log, TEXT("GSM| Match found! Fetching match details..."));
+		MatchDetailsRequest request(gs);
+		request.SetMatchId(response.GetMatchId().GetValue());
+		request.Send(([&](GS& gs, const MatchDetailsResponse& matchDetailsResponse) {
+			if (matchDetailsResponse.GetHasErrors())
+			{
+				UE_LOG(LogOnline, Log, TEXT("GSM| Match details not found."));
+			}
+			else
+			{
+				UE_LOG(LogOnline, Log, TEXT("GSM| Found match details!"));
+				SessionInfo = MakeShareable(new RTSessionInfo(matchDetailsResponse));
+				CreateNewRTSession();
+			}
+		}));
 	});
 
 	gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
@@ -228,27 +246,8 @@ void UShooterGameInstance::FindDeathmatch()
 
 	gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
 		UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
-		// so we're already matched. Add to the session
-		if (SessionInfo.IsValid())
-		{
-			SessionInfo->UpdateSessionInfo(response);
-		}
-		else
-		{
-			UE_LOG(LogOnline, Log, TEXT("GSM| Canceling Previous Matchmaking..."));
-			MatchmakingRequest request(gs);
-			request.SetMatchShortCode("DEATHMATCH");
-			request.SetSkill(0);
-			request.SetAction("cancel");
-			request.Send([&](GS& gsInstance, const MatchmakingResponse& response) {
-				if (response.GetHasErrors())
-				{
-					FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
-					UE_LOG(LogTemp, Warning, TEXT("%s"), *JSONString);
-				}
-			}, 60);
-		}
 	});
+
 	UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
 	MatchmakingRequest request(gs);
 	request.SetMatchShortCode("DEATHMATCH");
@@ -378,11 +377,12 @@ void UShooterGameInstance::CreateNewRTSession()
 		.Build());
 
 	RTSession->Start();
-}
-
-void UShooterGameInstance::UpdateRTSession()
-{
-	
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
+	{
+		MenuPC->PeerId = SessionInfo->PeerId;
+		MenuPC->PlayerId = SessionInfo->PlayerId;
+	}
 }
 
 void UShooterGameInstance::OnJoinRTSession(const FString& MapPath)
@@ -404,7 +404,186 @@ void UShooterGameInstance::OnJoinRTSession(const FString& MapPath)
 			return;
 		}
 
+		//LoadFrontEndMap(MapPath);
 		PlayerController->ClientTravelInternal(MapPath, TRAVEL_Absolute);
+	}
+}
+
+void UShooterGameInstance::OnChatMessageReceived(int FromPeerId, std::string MessageText)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+	RTPlayer MessageFromPlayer;
+
+	if (SessionInfo.IsValid())
+	{
+		for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
+		{
+			RTPlayer rtPlayer = *it;
+			if (rtPlayer.PeerID == FromPeerId)
+			{
+				MessageFromPlayer = rtPlayer;
+				break;
+			}
+		}
+
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
+		{
+			MenuPC->OnChatMessageReceived(MessageFromPlayer.PeerID, MessageFromPlayer.DisplayName, FString(UTF8_TO_TCHAR(MessageText.c_str())));
+		}
+	}
+}
+
+void UShooterGameInstance::SendPrivateChatMessage(int ToPeerId, std::string MessageText)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+	if (SessionInfo.IsValid())
+	{
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
+		{
+			RTPlayer MessageToPlayer;
+			for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
+			{
+				RTPlayer rtPlayer = *it;
+				if (rtPlayer.PeerID == ToPeerId)
+				{
+					MessageToPlayer = rtPlayer;
+					break;
+				}
+			}
+			if (MessageToPlayer.bIsOnline)
+			{
+				std::vector<int> PeerIds;
+				PeerIds.push_back(MessageToPlayer.PeerID);
+				SendChatMessage(MessageText, PeerIds);
+			}
+			else
+			{
+				MenuPC->OnChatMessageReceived(MessageToPlayer.PeerID, MessageToPlayer.DisplayName, "is not online and cannot receive private chat messages");
+			}
+		}
+	}
+}
+
+void UShooterGameInstance::SendServerChatMessage(std::string MessageText)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+	if (SessionInfo.IsValid())
+	{
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
+		{
+			std::vector<int> PeerIds;
+			SendChatMessage(MessageText, PeerIds);
+		}
+	}
+}
+
+void UShooterGameInstance::SendChatMessage(std::string MessageText, std::vector<int> PeerIds)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+	if (SessionInfo.IsValid())
+	{
+		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if (MenuPC)
+		{
+			RTData data;
+			data.SetString(1, MessageText);
+			// opCode for chat is 1
+			if (RTSession->SendRTData(1, GameSparksRT::DeliveryIntent::RELIABLE, data, PeerIds))
+			{
+				UE_LOG(LogOnlineGame, Warning, TEXT("Sent message: %s"), UTF8_TO_TCHAR(MessageText.c_str()));
+			}
+		}
+	}
+}
+bool UShooterGameInstance::OnEnterDown()
+{
+	APlayerController* pc = GetFirstLocalPlayerController(GetWorld());
+	if (!pc)
+	{
+		return false;
+	}
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(pc);
+	if (MenuPC)
+	{
+		if (MenuPC->bChatCanHandleEnter)
+		{
+			return MenuPC->OnEnterDown();
+		}
+	}
+	return false;
+}
+
+bool UShooterGameInstance::OnEscapeDown()
+{
+	APlayerController* pc = GetFirstLocalPlayerController(GetWorld());
+	if (!pc)
+	{
+		return false;
+	}
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(pc);
+	if (MenuPC)
+	{
+		if (MenuPC->bChatCanHandleEscape)
+		{
+			return MenuPC->OnEscapeDown();
+		}
+	}
+	return false;
+}
+
+void UShooterGameInstance::OnPlayerConnect(int PeerId)
+{
+	OnChatMessageReceived(PeerId, "has connected");
+}
+
+void UShooterGameInstance::OnPlayerDisconnect(int PeerId)
+{
+	OnChatMessageReceived(PeerId, "has disconnected");
+}
+
+void UShooterGameInstance::OnPacket(const RTPacket& packet)
+{
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
+	{
+		switch (packet.OpCode)
+		{
+		case 1: //chat
+			for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
+			{
+				RTPlayer rtPlayer = *it;
+				if (rtPlayer.PeerID == packet.Sender)
+				{
+					MenuPC->OnChatMessageReceived(rtPlayer.PeerID, rtPlayer.DisplayName, FString(UTF8_TO_TCHAR(packet.Data.GetString(1).GetValueOrDefault("").c_str())));
+					break;
+				}
+			}
+			break;
+		default:
+			break;
+		}
 	}
 }
 
@@ -743,24 +922,6 @@ void UShooterGameInstance::HideLoginScreen()
 	}
 }
 
-void UShooterGameInstance::ShowAdventureScreen()
-{
-	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-	if (MenuPC)
-	{
-		MenuPC->ShowAdventureScreen();
-	}
-}
-
-void UShooterGameInstance::HideAdventureScreen()
-{
-	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-	if (MenuPC)
-	{
-		MenuPC->HideAdventureScreen();
-	}
-}
-
 bool UShooterGameInstance::LoadFrontEndMap(const FString& MapName)
 {
 	bool bSuccess = true;
@@ -879,10 +1040,6 @@ void UShooterGameInstance::EndCurrentState(FName NextState)
 	{
 		EndLoginScreenState();
 	}
-	else if (CurrentState == ShooterGameInstanceState::AdventureScreen)
-	{
-		EndAdventureScreenState();
-	}
 	else if (CurrentState == ShooterGameInstanceState::MainMenu)
 	{
 		EndMainMenuState();
@@ -910,10 +1067,6 @@ void UShooterGameInstance::BeginNewState(FName NewState, FName PrevState)
 	else if (NewState == ShooterGameInstanceState::LoginScreen)
 	{
 		BeginLoginState();
-	}
-	else if (NewState == ShooterGameInstanceState::AdventureScreen)
-	{
-		BeginAdventureState();
 	}
 	else if (NewState == ShooterGameInstanceState::MainMenu)
 	{
@@ -975,37 +1128,6 @@ void UShooterGameInstance::BeginLoginState()
 void UShooterGameInstance::EndLoginScreenState()
 {
 	HideLoginScreen();
-}
-
-void UShooterGameInstance::BeginAdventureState()
-{
-	//this must come before split screen player removal so that the OSS sets all players to not using online features.
-	SetOnlineMode(EOnlineMode::Offline);
-
-	// Remove any possible split-screen players
-	RemoveSplitScreenPlayers();
-
-	LoadFrontEndMap(AdventureScreenMap);
-
-	ULocalPlayer* const LocalPlayer = GetFirstGamePlayer();
-	if (LocalPlayer->PlayerController)
-	{
-		LocalPlayer->PlayerController->bShowMouseCursor = true;
-	}
-	ShowAdventureScreen();
-
-	// Disallow split-screen (we will allow while in the playing state)
-	GetGameViewportClient()->SetDisableSplitscreenOverride( true );
-}
-
-void UShooterGameInstance::EndAdventureScreenState()
-{
-	ULocalPlayer* const LocalPlayer = GetFirstGamePlayer();
-	if (LocalPlayer->PlayerController)
-	{
-		LocalPlayer->PlayerController->bShowMouseCursor = false;
-	}
-	HideAdventureScreen();
 }
 
 void UShooterGameInstance::SetPresenceForLocalPlayers(const FString& StatusStr, const FVariantData& PresenceData)
