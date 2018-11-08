@@ -12,7 +12,10 @@ class URTMatch : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
-
+	UPROPERTY(BlueprintReadOnly, Category = Online)
+		FString HostPlayerId;
+	UPROPERTY(BlueprintReadOnly, Category = Online)
+		FString ChallengeInstanceId;
 	UPROPERTY(BlueprintReadOnly, Category = Online)
 		FString MapName;
 	UPROPERTY(BlueprintReadOnly, Category = Online)

@@ -11,6 +11,7 @@
 #include <GameSparksRT/IRTSession.hpp>
 #include "Online/RTSessionInfo.h"
 #include "Online/RTSessionListener.h"
+#include "Online/RTMatch.h"
 #include "Online/UserProfile.h"
 #include "ShooterGameInstance.generated.h"
 
@@ -19,6 +20,7 @@ class FShooterMainMenu;
 class FShooterMessageMenu;
 class AShooterGameSession;
 
+using namespace GameSparks;
 using namespace GameSparks::RT;
 
 namespace ShooterGameInstanceState
@@ -221,24 +223,27 @@ public:
 	void Login(int32 LocalUserNum, const FString& UserName, const FString& Password);
 	void Logout(int32 LocalUserNum);
 	void FindDeathmatches();
-	void FindQuickDeathmatch();
+	void HostQuickDeathmatch();
+	void JoinQuickDeathmatch();
 
 	TSharedPtr<RTSessionInfo> SessionInfo;
+	URTMatch* CurrentQuickDeathMatch;
 	TSharedPtr<IRTSession> RTSession;
 	TSharedPtr<IRTSessionListener> RTListener;
 
 	void CreateNewRTSession();
 	void OnJoinRTSession(const FString& MapPath);
 
-	void OnChatMessageReceived(int FromPeerId, std::string MessageText);
-	void SendPrivateChatMessage(int ToPeerId, std::string MessageText);
-	void SendChatMessage(std::string MessageText, std::vector<int> PeerIds);
-	void SendServerChatMessage(std::string MessageText);
+	void OnChatMessageReceived(FString Channel, FString FromDisplayName, FString FromPlayerId, FString MessageText);
+	void SendFriendChatMessage(std::string FriendPlayerId, std::string MessageText);
+	void SendChallengeChatMessage(std::string MessageText);
+	void SendTeamChatMessage(std::string MessageText);
+	void OnChallengeInstanceStart(std::string ChallengeInstanceId);
 	void OnPlayerConnect(int PeerId);
 	void OnPlayerDisconnect(int PeerId);
+	TSharedPtr<RTPlayer> GetRTPlayerFromPeerId(int PeerId);
 	void OnPacket(const RTPacket& packet);
-	bool OnEnterDown();
-	bool OnEscapeDown();
+	
 
 private:
 

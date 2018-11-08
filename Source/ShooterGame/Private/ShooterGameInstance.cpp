@@ -25,6 +25,7 @@
 #include "GameSparksModule.h"
 #include <GameSparksRT/RTData.hpp>
 #include <cassert>
+#include "cjson/cJSON.h"
 
 FAutoConsoleVariable CVarShooterGameTestEncryption(TEXT("ShooterGame.TestEncryption"), 0, TEXT("If true, clients will send an encryption token with their request to join the server and attempt to encrypt the connection using a debug key. This is NOT SECURE and for demonstration purposes only."));
 
@@ -219,33 +220,159 @@ void UShooterGameInstance::FindDeathmatches()
 	
 }
 
-void UShooterGameInstance::FindQuickDeathmatch()
+void UShooterGameInstance::HostQuickDeathmatch()
+{
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (MenuPC)
+	{
+		GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+		gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match found! Fetching match details..."));
+			MatchDetailsRequest request(gs);
+			request.SetMatchId(response.GetMatchId().GetValue());
+			request.Send(([&](GS& gs, const MatchDetailsResponse& matchDetailsResponse) {
+				if (matchDetailsResponse.GetHasErrors())
+				{
+					UE_LOG(LogOnline, Log, TEXT("GSM| Match details not found."));
+				}
+				else
+				{
+					UE_LOG(LogOnline, Log, TEXT("GSM| Got match details!"));
+
+					std::vector<std::string> PlayerIdsToChallenge;
+					for (std::size_t i = 0; i < matchDetailsResponse.GetOpponents().size(); i++)
+					{
+						PlayerIdsToChallenge.push_back(matchDetailsResponse.GetOpponents()[i].GetId().GetValueOrDefault(""));
+					}
+
+					CreateChallengeRequest request(gs);
+					request.SetAccessType("PRIVATE");
+					//request.SetChallengeMessage("Bozo's challenge");
+					request.SetChallengeShortCode("DEATHMATCH_CHALLENGE");
+					request.SetMaxPlayers(14);
+					request.SetEndTime(GSDateTime::Now().AddMinutes(30));
+					request.SetExpiryTime(GSDateTime::Now().AddSeconds(30));
+					request.SetUsersToChallenge(PlayerIdsToChallenge);
+					request.Send([&](GS& gsInstance, const CreateChallengeResponse& response) {
+						if (response.GetHasErrors())
+						{
+							FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+							UE_LOG(LogTemp, Warning, TEXT("GSM| Error in creating challenge: %s"), *JSONString);
+						}
+						else
+						{
+							UE_LOG(LogOnline, Log, TEXT("GSM| Created challenge!"));
+							CurrentQuickDeathMatch->ChallengeInstanceId = FString(UTF8_TO_TCHAR(response.GetChallengeInstanceId().GetValueOrDefault("").c_str()));
+						}
+					}, 60);
+
+					//SessionInfo = MakeShareable(new RTSessionInfo(matchDetailsResponse));
+					//CreateNewRTSession();
+				}
+			}));
+		});
+
+		gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match not found..."));
+		});
+
+		gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
+		});
+
+		UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
+
+		if (CurrentQuickDeathMatch == NULL)
+		{
+			CurrentQuickDeathMatch = NewObject<URTMatch>();
+		}
+		CurrentQuickDeathMatch->HostPlayerId = MenuPC->UserProfile->PlayerId;
+
+		MatchmakingRequest request(gs);
+		request.SetMatchShortCode("DEATHMATCH");
+		request.SetSkill(0);
+		cJSON* matchData = cJSON_CreateObject();
+		if (matchData)
+		{
+			cJSON_AddItemToObject(matchData, "hostPlayerId", cJSON_CreateString(TCHAR_TO_UTF8(*CurrentQuickDeathMatch->HostPlayerId)));
+			request.SetMatchData(GSRequestData(matchData));
+		}
+
+		request.Send([&](GS& gsInstance, const MatchmakingResponse& response) {
+			if (response.GetHasErrors())
+			{
+				FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+				UE_LOG(LogTemp, Warning, TEXT("%s"), *JSONString);
+			}
+		}, 60);
+	}
+}
+
+void UShooterGameInstance::JoinQuickDeathmatch()
 {
 	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
 	gs.SetMessageListener<MatchFoundMessage>([&](GS& gs, const MatchFoundMessage& response) {
-		UE_LOG(LogOnline, Log, TEXT("GSM| Match found! Fetching match details..."));
-		MatchDetailsRequest request(gs);
-		request.SetMatchId(response.GetMatchId().GetValue());
-		request.Send(([&](GS& gs, const MatchDetailsResponse& matchDetailsResponse) {
-			if (matchDetailsResponse.GetHasErrors())
+		UE_LOG(LogOnline, Log, TEXT("GSM| Joined match found!"));
+		if (CurrentQuickDeathMatch == NULL)
+		{
+			CurrentQuickDeathMatch = NewObject<URTMatch>();
+		}
+		if (response.GetMatchData().HasValue())
+		{
+			cJSON* json = cJSON_Parse(response.GetMatchData().GetValue().GetJSON().c_str());
+
+			if (json == NULL)
 			{
-				UE_LOG(LogOnline, Log, TEXT("GSM| Match details not found."));
+				const char *error_ptr = cJSON_GetErrorPtr();
+				if (error_ptr != NULL)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Error before: %s\n"), error_ptr);
+				}
+				return;
 			}
-			else
+
+			cJSON* hostPlayerIdJson = cJSON_GetObjectItem(json, "hostPlayerId");
+			if (hostPlayerIdJson && hostPlayerIdJson->valuestring != NULL)
 			{
-				UE_LOG(LogOnline, Log, TEXT("GSM| Found match details!"));
-				SessionInfo = MakeShareable(new RTSessionInfo(matchDetailsResponse));
-				CreateNewRTSession();
+				CurrentQuickDeathMatch->HostPlayerId = FString(UTF8_TO_TCHAR(hostPlayerIdJson->valuestring));
 			}
-		}));
+			cJSON_Delete(json);
+		}
 	});
 
 	gs.SetMessageListener<MatchNotFoundMessage>([&](GS& gs, const MatchNotFoundMessage& response) {
-		UE_LOG(LogOnline, Log, TEXT("GSM| Match not found..."));
+		UE_LOG(LogOnline, Log, TEXT("GSM| Joined match not found..."));
 	});
 
 	gs.SetMessageListener<MatchUpdatedMessage>([&](GS& gs, const MatchUpdatedMessage& response) {
-		UE_LOG(LogOnline, Log, TEXT("GSM| Match updated..."));
+		UE_LOG(LogOnline, Log, TEXT("GSM| Joined match updated..."));
+	});
+
+	gs.SetMessageListener<ChallengeIssuedMessage>([&](GS& gs, const ChallengeIssuedMessage& response) {
+		UE_LOG(LogOnline, Log, TEXT("GSM| Got issued challenge!"));
+		CurrentQuickDeathMatch->ChallengeInstanceId = FString(UTF8_TO_TCHAR(response.GetChallenge().GetChallengeId().GetValueOrDefault("").c_str()));
+
+		JoinChallengeRequest request(gs);
+		request.SetChallengeInstanceId(response.GetChallenge().GetChallengeId().GetValueOrDefault(""));
+		request.Send([&](GS& gsInstance, const JoinChallengeResponse& response) {
+			if (response.GetHasErrors())
+			{
+				FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+				UE_LOG(LogTemp, Warning, TEXT("GSM| Error in joining challenge: %s"), *JSONString);
+			}
+			else
+			{
+				bool joined = response.GetJoined().GetValueOrDefault(false);
+				if (joined)
+				{
+					UE_LOG(LogOnline, Log, TEXT("GSM| Joined challenge!"));
+				}
+				else
+				{
+					UE_LOG(LogOnline, Log, TEXT("GSM| Could not join challenge."));
+				}
+			}
+		});
 	});
 
 	UE_LOG(LogOnline, Log, TEXT("GSM| Attempting Matchmaking..."));
@@ -285,6 +412,9 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
 	assert(identity);
 
+	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+	assert(gs);
+
 	identity->ClearOnLoginCompleteDelegate_Handle(LocalUserNum, OnLoginCompleteDelegateHandle);
 
 	if (bWasSuccessful)
@@ -296,8 +426,15 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 		{
 			MenuPC->UserProfile = NewObject<UUserProfile>();
 			MenuPC->UserProfile->DisplayName = user->GetDisplayName();
+			MenuPC->UserProfile->PlayerId = user->GetUserId().Get().ToString();
+			MenuPC->AvailableChannels.Empty();
+			MenuPC->AvailableChannels.Add(FString("General"));
 			MenuPC->ShowMainMenu();
 		}
+
+		/*gs.SetMessageListener<ScriptMessage>([&](GS& gs, const ScriptMessage& message) {
+			UE_LOG(LogOnline, Log, TEXT("GSM| Got script message!"));
+		});*/
 
 		ULocalPlayer * NewPlayerOwner = GetFirstGamePlayer();
 		if (NewPlayerOwner != nullptr)
@@ -350,6 +487,29 @@ void UShooterGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessf
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("log-in failed with error: ") + Error);
 	}
+}
+
+void UShooterGameInstance::OnChallengeInstanceStart(std::string ChallengeInstanceId)
+{
+	GS& gs = UGameSparksModule::GetModulePtr()->GetGSInstance();
+
+	gs.SetMessageListener<ScriptMessage>([&](GS& gs, const ScriptMessage& message) {
+		UE_LOG(LogOnline, Log, TEXT("GSM| Got script message!"));
+		if (message.GetData().HasValue())
+		{
+			const FString eventType = FString(UTF8_TO_TCHAR(message.GetData().GetValue().GetString("eventType").GetValueOrDefault("").c_str()));
+			if (eventType == "event_chat")
+			{
+				const FString fromDisplayName = FString(UTF8_TO_TCHAR(message.GetData().GetValue().GetString("fromDisplayName").GetValueOrDefault("").c_str()));
+				const FString fromPlayerId = FString(UTF8_TO_TCHAR(message.GetData().GetValue().GetString("fromPlayerId").GetValueOrDefault("").c_str()));
+				const FString chatMessage = FString(UTF8_TO_TCHAR(message.GetData().GetValue().GetString("chatMessage").GetValueOrDefault("").c_str()));
+				const FString channel = FString(UTF8_TO_TCHAR(message.GetData().GetValue().GetString("channel").GetValueOrDefault("").c_str()));
+
+
+
+			}
+		}
+	});
 }
 
 void UShooterGameInstance::OnUserCanPlay(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, uint32 PrivilegeResults)
@@ -409,36 +569,7 @@ void UShooterGameInstance::OnJoinRTSession(const FString& MapPath)
 	}
 }
 
-void UShooterGameInstance::OnChatMessageReceived(int FromPeerId, std::string MessageText)
-{
-	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
-	assert(OnlineSub);
-
-	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
-	assert(OnlineSub);
-	RTPlayer MessageFromPlayer;
-
-	if (SessionInfo.IsValid())
-	{
-		for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
-		{
-			RTPlayer rtPlayer = *it;
-			if (rtPlayer.PeerID == FromPeerId)
-			{
-				MessageFromPlayer = rtPlayer;
-				break;
-			}
-		}
-
-		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-		if (MenuPC)
-		{
-			MenuPC->OnChatMessageReceived(MessageFromPlayer.PeerID, MessageFromPlayer.DisplayName, FString(UTF8_TO_TCHAR(MessageText.c_str())));
-		}
-	}
-}
-
-void UShooterGameInstance::SendPrivateChatMessage(int ToPeerId, std::string MessageText)
+void UShooterGameInstance::OnChatMessageReceived(FString Channel, FString FromDisplayName, FString FromPlayerId, FString MessageText)
 {
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
 	assert(OnlineSub);
@@ -446,123 +577,72 @@ void UShooterGameInstance::SendPrivateChatMessage(int ToPeerId, std::string Mess
 	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
 	assert(OnlineSub);
 
-	if (SessionInfo.IsValid())
-	{
-		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-		if (MenuPC)
-		{
-			RTPlayer MessageToPlayer;
-			for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
-			{
-				RTPlayer rtPlayer = *it;
-				if (rtPlayer.PeerID == ToPeerId)
-				{
-					MessageToPlayer = rtPlayer;
-					break;
-				}
-			}
-			if (MessageToPlayer.bIsOnline)
-			{
-				std::vector<int> PeerIds;
-				PeerIds.push_back(MessageToPlayer.PeerID);
-				SendChatMessage(MessageText, PeerIds);
-			}
-			else
-			{
-				MenuPC->OnChatMessageReceived(MessageToPlayer.PeerID, MessageToPlayer.DisplayName, "is not online and cannot receive private chat messages");
-			}
-		}
-	}
-}
-
-void UShooterGameInstance::SendServerChatMessage(std::string MessageText)
-{
-	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
-	assert(OnlineSub);
-
-	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
-	assert(OnlineSub);
-
-	if (SessionInfo.IsValid())
-	{
-		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-		if (MenuPC)
-		{
-			std::vector<int> PeerIds;
-			SendChatMessage(MessageText, PeerIds);
-		}
-	}
-}
-
-void UShooterGameInstance::SendChatMessage(std::string MessageText, std::vector<int> PeerIds)
-{
-	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
-	assert(OnlineSub);
-
-	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
-	assert(OnlineSub);
-
-	if (SessionInfo.IsValid())
-	{
-		AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-		if (MenuPC)
-		{
-			RTData data;
-			data.SetString(1, MessageText);
-			// opCode for chat is 1
-			if (RTSession->SendRTData(1, GameSparksRT::DeliveryIntent::RELIABLE, data, PeerIds))
-			{
-				UE_LOG(LogOnlineGame, Warning, TEXT("Sent message: %s"), UTF8_TO_TCHAR(MessageText.c_str()));
-			}
-		}
-	}
-}
-bool UShooterGameInstance::OnEnterDown()
-{
-	APlayerController* pc = GetFirstLocalPlayerController(GetWorld());
-	if (!pc)
-	{
-		return false;
-	}
-	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(pc);
+	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 	if (MenuPC)
 	{
-		if (MenuPC->bChatCanHandleEnter)
+		MenuPC->OnChatMessageReceived(Channel, FromPlayerId, FromDisplayName, MessageText);
+	}
+}
+
+void UShooterGameInstance::SendFriendChatMessage(std::string FriendPlayerId, std::string MessageText)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+
+}
+
+void UShooterGameInstance::SendChallengeChatMessage(std::string MessageText)
+{
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+	ChatOnChallengeRequest request(UGameSparksModule::GetModulePtr()->GetGSInstance());
+	request.SetChallengeInstanceId(TCHAR_TO_UTF8(*CurrentQuickDeathMatch->ChallengeInstanceId));
+	request.SetMessage(MessageText);
+	request.Send([&](GS& gsInstance, const ChatOnChallengeResponse& response) {
+		if (response.GetHasErrors())
 		{
-			return MenuPC->OnEnterDown();
+			FString JSONString = FString(UTF8_TO_TCHAR(response.GetErrors().GetValue().GetJSON().c_str()));
+			UE_LOG(LogTemp, Warning, TEXT("GSM| Error sending challenge chat message: %s"), *JSONString);
 		}
-	}
-	return false;
-}
-
-bool UShooterGameInstance::OnEscapeDown()
-{
-	APlayerController* pc = GetFirstLocalPlayerController(GetWorld());
-	if (!pc)
-	{
-		return false;
-	}
-	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(pc);
-	if (MenuPC)
-	{
-		if (MenuPC->bChatCanHandleEscape)
+	});
+	
+	/*LogEventRequest request(UGameSparksModule::GetModulePtr()->GetGSInstance());
+	request.SetEventKey("CHAT");
+	request.SetEventAttribute("Channel", Channel);
+	request.SetEventAttribute("Message", MessageText);
+	request.Send([&](GS& gsInstance, const LogEventResponse& response) {
+		if (response.GetHasErrors())
 		{
-			return MenuPC->OnEscapeDown();
+			UE_LOG(LogOnline, Log, TEXT("GSM| Error sending chat."));
 		}
-	}
-	return false;
+	});*/
 }
 
-void UShooterGameInstance::OnPlayerConnect(int PeerId)
+void UShooterGameInstance::SendTeamChatMessage(std::string MessageText)
 {
-	OnChatMessageReceived(PeerId, "has connected");
+	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
+	assert(OnlineSub);
+
+	IOnlineIdentityPtr identity = OnlineSub->GetIdentityInterface();
+	assert(OnlineSub);
+
+	
 }
 
-void UShooterGameInstance::OnPlayerDisconnect(int PeerId)
+/*RTData data;
+data.SetString(1, MessageText);
+if (RTSession->SendRTData(1, GameSparksRT::DeliveryIntent::RELIABLE, data, PeerIds))
 {
-	OnChatMessageReceived(PeerId, "has disconnected");
-}
-
+	UE_LOG(LogOnlineGame, Warning, TEXT("Sent message: %s"), UTF8_TO_TCHAR(MessageText.c_str()));
+}*/
 void UShooterGameInstance::OnPacket(const RTPacket& packet)
 {
 	AShooterPlayerController_Menu* const MenuPC = Cast<AShooterPlayerController_Menu>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
@@ -570,8 +650,8 @@ void UShooterGameInstance::OnPacket(const RTPacket& packet)
 	{
 		switch (packet.OpCode)
 		{
-		case 1: //chat
-			for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
+		case 1:
+			/*for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
 			{
 				RTPlayer rtPlayer = *it;
 				if (rtPlayer.PeerID == packet.Sender)
@@ -579,12 +659,46 @@ void UShooterGameInstance::OnPacket(const RTPacket& packet)
 					MenuPC->OnChatMessageReceived(rtPlayer.PeerID, rtPlayer.DisplayName, FString(UTF8_TO_TCHAR(packet.Data.GetString(1).GetValueOrDefault("").c_str())));
 					break;
 				}
-			}
+			}*/
 			break;
 		default:
 			break;
 		}
 	}
+}
+
+void UShooterGameInstance::OnPlayerConnect(int PeerId)
+{
+	TSharedPtr<RTPlayer> player = GetRTPlayerFromPeerId(PeerId);
+	if (player)
+	{
+		OnChatMessageReceived("System", "System", player->DisplayName, "has connected");
+	}
+}
+
+void UShooterGameInstance::OnPlayerDisconnect(int PeerId)
+{
+	TSharedPtr<RTPlayer> player = GetRTPlayerFromPeerId(PeerId);
+	if (player)
+	{
+		OnChatMessageReceived("System", "System", player->DisplayName, "has disconnected");
+	}
+}
+
+TSharedPtr<RTPlayer> UShooterGameInstance::GetRTPlayerFromPeerId(int PeerId)
+{
+	if (SessionInfo.IsValid())
+	{
+		for (auto it = SessionInfo->PlayerList.CreateIterator(); it; ++it)
+		{
+			TSharedPtr<RTPlayer> rtPlayer = *it;
+			if (rtPlayer->PeerID == PeerId)
+			{
+				return rtPlayer;
+			}
+		}
+	}
+	return NULL;
 }
 
 void UShooterGameInstance::Logout(int32 LocalUserNum)
@@ -1200,6 +1314,8 @@ void UShooterGameInstance::BeginMainMenuState()
 		{
 			MenuPC->UserProfile = NewObject<UUserProfile>();
 			MenuPC->UserProfile->DisplayName = user->GetDisplayName();
+			MenuPC->UserProfile->PlayerId = user->GetUserId().Get().ToString();
+
 			MenuPC->ShowMainMenu();
 		}
 	}

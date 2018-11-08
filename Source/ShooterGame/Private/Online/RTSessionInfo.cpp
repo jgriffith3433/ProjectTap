@@ -14,8 +14,8 @@ RTSessionInfo::RTSessionInfo(const MatchDetailsResponse& message)
 
 	for (std::size_t i = 0; i < message.GetOpponents().size(); i++)
 	{
-		RTPlayer player = RTPlayer(message.GetOpponents()[i]);
-		PlayerList.Add(player);
+		RTPlayer* player = new RTPlayer(message.GetOpponents()[i]);
+		PlayerList.Add(MakeShareable(player));
 	}
 }
 

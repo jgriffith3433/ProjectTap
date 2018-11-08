@@ -12,8 +12,8 @@ class AShooterPlayerController_Menu;
 class SHOOTERGAME_API FChatInputProcessor : virtual public IInputProcessor
 {
 public:
-	FChatInputProcessor(UShooterGameInstance* _GameInstance);
-	TSharedPtr<UShooterGameInstance> GameInstance;
+	FChatInputProcessor(AShooterPlayerController_Menu* PC);
+	AShooterPlayerController_Menu* PlayerController;
 	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override;
 	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;

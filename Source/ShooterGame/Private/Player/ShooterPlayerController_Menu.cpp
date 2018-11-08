@@ -3,7 +3,6 @@
 #include "ShooterGame.h"
 #include "Player/ShooterPlayerController_Menu.h"
 #include "ShooterStyle.h"
-#include "UI/ChatInputProcessor.h"
 
 
 AShooterPlayerController_Menu::AShooterPlayerController_Menu(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -12,18 +11,25 @@ AShooterPlayerController_Menu::AShooterPlayerController_Menu(const FObjectInitia
 	bEnableMouseOverEvents = true;
 	bChatCanHandleEnter = false;
 	bChatCanHandleEscape = false;
+	bChatCanHandleTab = false;
 }
 
 void AShooterPlayerController_Menu::PostInitializeComponents() 
 {
 	Super::PostInitializeComponents();
-	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
-	if (GameInstance)
-	{
-		TSharedPtr<FChatInputProcessor> ChatInput(new FChatInputProcessor(GameInstance));
-		FSlateApplication::Get().RegisterInputPreProcessor(ChatInput);
-	}
+	ChatInput = MakeShareable(new FChatInputProcessor(this));
+	FSlateApplication::Get().RegisterInputPreProcessor(ChatInput);
 	FShooterStyle::Initialize();
+}
+
+void AShooterPlayerController_Menu::EndPlay(EEndPlayReason::Type EndPlayReason)
+{
+	if (ChatInput.IsValid())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(ChatInput);
+		ChatInput.Reset();
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 bool AShooterPlayerController_Menu::PlayMission(const FString& MapPath)
@@ -45,12 +51,21 @@ void AShooterPlayerController_Menu::FindDeathmatches()
 	}
 }
 
-void AShooterPlayerController_Menu::FindQuickDeathmatch()
+void AShooterPlayerController_Menu::HostQuickDeathmatch()
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
 	if (GameInstance)
 	{
-		GameInstance->FindQuickDeathmatch();
+		GameInstance->HostQuickDeathmatch();
+	}
+}
+
+void AShooterPlayerController_Menu::JoinQuickDeathmatch()
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->JoinQuickDeathmatch();
 	}
 }
 
@@ -72,20 +87,20 @@ void AShooterPlayerController_Menu::OnLogoutPressed()
 	}
 }
 
-void AShooterPlayerController_Menu::SendChatMessage(FString ChatMessage)
+void AShooterPlayerController_Menu::SendChallengeChatMessage(FString ChatMessage)
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
 	if (GameInstance)
 	{
-		GameInstance->SendServerChatMessage(TCHAR_TO_UTF8(*ChatMessage));
+		GameInstance->SendChallengeChatMessage(TCHAR_TO_UTF8(*ChatMessage));
 	}
 }
 
-void AShooterPlayerController_Menu::SendChatMessageToPeer(int ToPeerId, FString ChatMessage)
+void AShooterPlayerController_Menu::SendTeamChatMessage(FString ChatMessage)
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
 	if (GameInstance)
 	{
-		GameInstance->SendPrivateChatMessage(ToPeerId, TCHAR_TO_UTF8(*ChatMessage));
+		GameInstance->SendTeamChatMessage(TCHAR_TO_UTF8(*ChatMessage));
 	}
 }

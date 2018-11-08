@@ -11,7 +11,8 @@ class UUserProfile : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
-
+	UPROPERTY(BlueprintReadOnly, Category = User)
+		FString PlayerId;
 	UPROPERTY(BlueprintReadOnly, Category = User)
 		FString DisplayName;
 	UPROPERTY(BlueprintReadOnly, Category = User)

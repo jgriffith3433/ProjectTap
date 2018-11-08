@@ -23,7 +23,7 @@ public:
 	FString MatchID;
 	int PeerId;
 	FString PlayerId;
-	TArray<RTPlayer> PlayerList;
+	TArray<TSharedPtr<RTPlayer>> PlayerList;
 
 	~RTSessionInfo();
 };

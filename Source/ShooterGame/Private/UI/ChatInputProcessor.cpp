@@ -1,12 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ShooterGame.h"
-#include "ShooterGameInstance.h"
+#include "Player/ShooterPlayerController_Menu.h"
 #include "ChatInputProcessor.h"
 
-FChatInputProcessor::FChatInputProcessor(UShooterGameInstance* _GameInstance)
+FChatInputProcessor::FChatInputProcessor(AShooterPlayerController_Menu* PC)
 {
-	GameInstance = MakeShareable(_GameInstance);
+	PlayerController = PC;
 }
 
 void FChatInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -16,35 +16,35 @@ void FChatInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateAp
 
 bool FChatInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyEvent.GetKey() == EKeys::Enter)
+	if (PlayerController)
 	{
-		if (GameInstance.IsValid())
+		if (InKeyEvent.GetKey() == EKeys::Enter)
 		{
-			return GameInstance->OnEnterDown();
+			if (PlayerController->bChatCanHandleEnter)
+			{
+				return PlayerController->OnEnterDown();
+			}
+		}
+		else if (InKeyEvent.GetKey() == EKeys::Escape)
+		{
+			if (PlayerController->bChatCanHandleEscape)
+			{
+				return PlayerController->OnEscapeDown();
+			}
+		}
+		else if (InKeyEvent.GetKey() == EKeys::Tab)
+		{
+			if (PlayerController->bChatCanHandleTab)
+			{
+				return PlayerController->OnTabDown();
+			}
 		}
 	}
-	else if (InKeyEvent.GetKey() == EKeys::Escape)
-	{
-		if (GameInstance.IsValid())
-		{
-			return GameInstance->OnEscapeDown();
-		}
-	}
-
 	return false;
 }
 
 bool FChatInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
-	// Were just going to handle the key down that way we only have to check if bChatCanHandleEnter or bChatCanHandleEscape one time
-	/*if (InKeyEvent.GetKey() == EKeys::Enter)
-	{
-		return true;
-	}
-	else if (InKeyEvent.GetKey() == EKeys::Escape)
-	{
-		return true;
-	}*/
 	return false;
 }
 
@@ -60,4 +60,5 @@ bool FChatInputProcessor::HandleMouseMoveEvent(FSlateApplication &, const FPoint
 
 FChatInputProcessor::~FChatInputProcessor()
 {
+	PlayerController = nullptr;
 }
