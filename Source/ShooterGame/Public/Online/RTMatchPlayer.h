@@ -8,17 +8,12 @@
 
 
 UCLASS(Blueprintable, BlueprintType, ClassGroup = (Custom))
-class URTMatch : public UObject
+class URTMatchPlayer : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
 	UPROPERTY(BlueprintReadOnly, Category = Online)
-		FString HostPlayerId;
-	UPROPERTY(BlueprintReadOnly, Category = Online)
-		FString ChallengeInstanceId;
-	UPROPERTY(BlueprintReadOnly, Category = Online)
-		FString MapName;
-	UPROPERTY(BlueprintReadOnly, Category = Online)
-		TArray<URTMatchPlayer> Players;
+		FString PlayerId;
+
 
 };

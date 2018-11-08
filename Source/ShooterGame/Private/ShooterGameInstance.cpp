@@ -251,7 +251,7 @@ void UShooterGameInstance::HostQuickDeathmatch()
 					request.SetChallengeShortCode("DEATHMATCH_CHALLENGE");
 					request.SetMaxPlayers(14);
 					request.SetEndTime(GSDateTime::Now().AddMinutes(30));
-					request.SetExpiryTime(GSDateTime::Now().AddSeconds(30));
+					request.SetExpiryTime(GSDateTime::Now().AddMinutes(2));
 					request.SetUsersToChallenge(PlayerIdsToChallenge);
 					request.Send([&](GS& gsInstance, const CreateChallengeResponse& response) {
 						if (response.GetHasErrors())
@@ -263,11 +263,9 @@ void UShooterGameInstance::HostQuickDeathmatch()
 						{
 							UE_LOG(LogOnline, Log, TEXT("GSM| Created challenge!"));
 							CurrentQuickDeathMatch->ChallengeInstanceId = FString(UTF8_TO_TCHAR(response.GetChallengeInstanceId().GetValueOrDefault("").c_str()));
+							SessionInfo = MakeShareable(new RTSessionInfo(matchDetailsResponse));
 						}
 					}, 60);
-
-					//SessionInfo = MakeShareable(new RTSessionInfo(matchDetailsResponse));
-					//CreateNewRTSession();
 				}
 			}));
 		});
@@ -350,6 +348,10 @@ void UShooterGameInstance::JoinQuickDeathmatch()
 
 	gs.SetMessageListener<ChallengeIssuedMessage>([&](GS& gs, const ChallengeIssuedMessage& response) {
 		UE_LOG(LogOnline, Log, TEXT("GSM| Got issued challenge!"));
+		if (CurrentQuickDeathMatch == NULL)
+		{
+			CurrentQuickDeathMatch = NewObject<URTMatch>();
+		}
 		CurrentQuickDeathMatch->ChallengeInstanceId = FString(UTF8_TO_TCHAR(response.GetChallenge().GetChallengeId().GetValueOrDefault("").c_str()));
 
 		JoinChallengeRequest request(gs);
@@ -386,6 +388,14 @@ void UShooterGameInstance::JoinQuickDeathmatch()
 			UE_LOG(LogTemp, Warning, TEXT("%s"), *JSONString);
 		}
 	}, 60);
+}
+
+void UShooterGameInstance::StartMatch()
+{
+	if (CurrentQuickDeathMatch->HostPlayerId == MenuPC->UserProfile->PlayerId)
+	{
+		CreateNewRTSession();
+	}
 }
 
 void UShooterGameInstance::Login(int32 LocalUserNum, const FString& UserName, const FString& Password)

@@ -225,6 +225,7 @@ public:
 	void FindDeathmatches();
 	void HostQuickDeathmatch();
 	void JoinQuickDeathmatch();
+	void StartMatch();
 
 	TSharedPtr<RTSessionInfo> SessionInfo;
 	URTMatch* CurrentQuickDeathMatch;

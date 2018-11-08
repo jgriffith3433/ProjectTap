@@ -69,6 +69,15 @@ void AShooterPlayerController_Menu::JoinQuickDeathmatch()
 	}
 }
 
+void AShooterPlayerController_Menu::StartMatch()
+{
+	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());
+	if (GameInstance)
+	{
+		GameInstance->StartMatch();
+	}
+}
+
 void AShooterPlayerController_Menu::OnLoginPressed(FString UserName, FString Password)
 {
 	UShooterGameInstance* GameInstance = Cast<UShooterGameInstance>(GetGameInstance());

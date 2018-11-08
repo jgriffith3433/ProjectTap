@@ -70,6 +70,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 		void JoinQuickDeathmatch();
 	UFUNCTION(BlueprintCallable)
+		void StartMatch();
+	UFUNCTION(BlueprintCallable)
 		void SendChallengeChatMessage(FString ChatMessage);
 	UFUNCTION(BlueprintCallable)
 		void SendTeamChatMessage(FString ChatMessage);
